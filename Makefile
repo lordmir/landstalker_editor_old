@@ -1,5 +1,9 @@
-CC         := g++
-LD         := g++
+CC         = g++
+LD         = g++
+
+LDFLAGS    = `wx-config --libs xrc,propgrid,aui,adv,core,base`
+CXXFLAGS   = `wx-config --cxxflags` -std=c++11
+CPPFLAGS   = `wx-config --cppflags`
 
 EXEC       := landstalker_editor
 LIBS       := 
@@ -12,40 +16,28 @@ INCS       := $(SRCDIR) $(addsuffix /include,$(SRCDIR)) $(addprefix $(SRCDIR)/,$
 SRC       := $(foreach sdir,$(SRCDIR),$(wildcard $(sdir)/*.cpp))
 OBJ       := $(patsubst $(SRCDIR)/%.cpp,$(BUILDDIR)/%.o,$(SRC))
 INCLUDES  := $(addprefix -I,$(INCS))
-EXECS     := $(addprefix $(BINDIR)/,$(EXEC))
-EXEC_SDIR := $(addprefix $(SRCDIR)/,$(EXEC))
-EXEC_ODIR := $(addprefix $(BUILDDIR)/,$(EXEC))
 
 vpath %.cpp $(SRCDIR) $(EXEC_SDIR)
 
-define make-obj
-$(BUILDDIR)/%.o: $(SRCDIR)/%.cpp
-	$(CC) $(CFLAGS) $(CXXFLAGS) $(INCLUDES) -c $$< -o $$@
-endef
-
-define make-exec
-$(BINDIR)/$1: $(OBJ) $(patsubst $(SRCDIR)/%.cpp,$(BUILDDIR)/%.o,$(wildcard $(SRCDIR)/*.cpp))
-	$(LD) $(LDFLAGS) $$^ $(LIBS) -o $(BINDIR)/$1
-endef
 
 .PHONY: all checkdirs clean clean-all
 
-all: checkdirs $(EXECS)
+all: checkdirs $(EXEC)
 
-checkdirs: $(BUILD_DIRS) $(BINDIR)
+checkdirs: $(BUILDDIR)
 
-$(BUILD_DIRS):
-	@mkdir -p $@/src
-
-$(BINDIR):
+$(BUILDDIR):
 	@mkdir -p $@
 
 clean:
 	@rm -rf $(BUILDDIR)
 
 clean-all: clean
-	@rm -rf $(BINDIR)
+	@rm -rf $(EXEC)
 
-$(foreach exec,$(EXEC),$(eval $(call make-obj,$(exec))))
-$(foreach exec,$(EXEC),$(eval $(call make-exec,$(exec))))
+$(BUILDDIR)/%.o: $(SRCDIR)/%.cpp
+	$(CC) $(CFLAGS) $(CXXFLAGS) $(CPPFLAGS) $(INCLUDES) -c $< -o $@
+
+$(EXEC): $(OBJ) $(patsubst $(SRCDIR)/%.cpp,$(BUILDDIR)/%.o,$(wildcard $(SRCDIR)/*.cpp))
+	$(LD) $(LDFLAGS) $^ $(LIBS) -o $@
 

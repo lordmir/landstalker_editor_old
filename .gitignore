@@ -2,6 +2,7 @@ build/
 bin/
 *.swp
 *.exe
+landstalker_editor
 vs2019/Debug/
 vs2019/Release/
 vs2019/.vs
