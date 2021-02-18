@@ -14,7 +14,7 @@ private:
 	cMain* m_mainframe{ nullptr };
 
 public:
-	virtual bool onInit();
+	virtual bool OnInit() override;
 };
 
 #endif // _C_APP_
