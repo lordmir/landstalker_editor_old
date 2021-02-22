@@ -1,12 +1,11 @@
-CC         = g++
+CXX        = g++
 LD         = g++
 
-LDFLAGS    = `wx-config --libs xrc,propgrid,aui,adv,core,base`
 CXXFLAGS   = `wx-config --cxxflags` -std=c++11
 CPPFLAGS   = `wx-config --cppflags`
 
 EXEC       := landstalker_editor
-LIBS       := 
+LIBS       := `wx-config --libs core,base`
 SRCDIR     := src
 BUILDDIR   := build
 BINDIR     := bin
@@ -40,8 +39,8 @@ clean-all: clean
 	@rm -rf $(EXEC)
 
 $(BUILDDIR)/%.o: $(SRCDIR)/%.cpp
-	$(CC) $(CFLAGS) $(CXXFLAGS) $(CPPFLAGS) $(INCLUDES) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(CPPFLAGS) $(INCLUDES) -c $< -o $@
 
 $(EXEC): $(OBJ) $(patsubst $(SRCDIR)/%.cpp,$(BUILDDIR)/%.o,$(wildcard $(SRCDIR)/*.cpp))
-	$(LD) $(LDFLAGS) $^ $(LIBS) -o $@
+	$(LD) $^ -o $@ $(LIBS)
 
