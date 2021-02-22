@@ -19,6 +19,10 @@ INCLUDES  := $(addprefix -I,$(INCS))
 
 vpath %.cpp $(SRCDIR) $(EXEC_SDIR)
 
+DEBUG=no
+ifeq ($(DEBUG),yes)
+    CXXFLAGS += -g
+endif
 
 .PHONY: all checkdirs clean clean-all
 

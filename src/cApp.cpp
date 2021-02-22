@@ -12,7 +12,7 @@ cApp::~cApp()
 
 }
 
-bool cApp::onInit()
+bool cApp::OnInit()
 {
 	m_mainframe = new cMain();
 	m_mainframe->Show();
