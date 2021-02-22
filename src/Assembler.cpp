@@ -3,14 +3,21 @@
 #include <string>
 #include <sstream>
 #include <fstream>
-#include <filesystem>
+#include <iomanip>
 
 #if defined _WIN32 || defined _WIN64
 #define popen _popen
 #define pclose _pclose
 #include <winsock.h>
+#include <filesystem>
 #else
 #include <arpa/inet.h>
+#if GCC_VERSION < 80000
+#include <experimental/filesystem>
+#define filesystem experimental::filesystem
+#else
+#include <filesystem>
+#endif
 #endif
 
 namespace Landstalker

@@ -12,8 +12,8 @@
 
 
 wxBEGIN_EVENT_TABLE(cMain, wxFrame)
-	EVT_BUTTON(10001, onLoadButtonClick)
-	EVT_BUTTON(10002, onBuildButtonClick)
+	EVT_BUTTON(10001, cMain::onLoadButtonClick)
+	EVT_BUTTON(10002, cMain::onBuildButtonClick)
 wxEND_EVENT_TABLE()
 
 cMain::cMain() : wxFrame(nullptr, wxID_ANY, "Landstalker Disassembly Editor")
