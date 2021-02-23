@@ -102,11 +102,11 @@ void cMain::onLoadButtonClick(wxCommandEvent& evt)
 					depth--;
 				}
 			}
-			auto* d = new Landstalker::FileData(it->path().generic_string(), it->is_regular_file());
+			auto* d = new Landstalker::FileData(it->path().generic_string(), std::filesystem::is_regular_file(*it));
 			last = m_fileList->AppendItem(parent,
 				                          it->path().filename().c_str(),
-				                          it->is_directory() ? 1 : 0,
-				                          it->is_directory() ? 1 : 0,
+				                          std::filesystem::is_directory(*it) ? 1 : 0,
+				                          std::filesystem::is_directory(*it) ? 1 : 0,
 				                          d);
 			depth = it.depth();
 		}
