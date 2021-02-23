@@ -19,6 +19,7 @@
     <ClInclude Include="..\src\cApp.h" />
     <ClInclude Include="..\src\cMain.h" />
     <ClInclude Include="..\src\Assembler.h" />
+    <ClInclude Include="..\src\FileData.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>

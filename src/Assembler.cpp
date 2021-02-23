@@ -25,7 +25,7 @@ namespace Landstalker
 namespace Assembler
 {
 
-int Assemble(const std::string& workingDirectory, const std::string& infile, const std::string& outfile, const std::string& args, std::string* output)
+int Assemble(const std::string& workingDirectory, const std::string& infile, const std::string& outfile, const std::string& args, wxTextCtrl* output)
 {
     const auto oldPath = std::filesystem::current_path();
     std::filesystem::current_path(workingDirectory);
@@ -38,7 +38,6 @@ int Assemble(const std::string& workingDirectory, const std::string& infile, con
 
 #if defined _WIN32 || defined _WIN64
     const std::string CMD = oldPath.generic_string() + "/" + ASSEMBLER_EXECUTABLE + " " + args + " " + infile + "," + outfile + " 2>&1";
-    wxMessageBox(CMD);
 #else
     const std::string CMD = "wine " + oldPath.generic_string() + "/" + ASSEMBLER_EXECUTABLE + " " + args + " " + infile + "," + outfile + " 2>&1";
 #endif
@@ -46,10 +45,16 @@ int Assemble(const std::string& workingDirectory, const std::string& infile, con
     char buf[BUFSIZE];
     FILE* fp;
 
+    if (output != nullptr)
+    {
+        output->AppendText("Assembling " + outfile + "...\n" );
+        output->AppendText(CMD + "\n" );
+    }
+
     if ((fp = popen(CMD.c_str(), "r")) == NULL) {
         if (output != nullptr)
         {
-            *output = "Error opening pipe!\n";
+            output->AppendText("Error opening pipe!\n");
         }
         return -1;
     }
@@ -58,11 +63,20 @@ int Assemble(const std::string& workingDirectory, const std::string& infile, con
     {
         if (output != nullptr)
         {
-            *output += buf;
+            output->AppendText(buf);
         }
     }
 
     int retval = pclose(fp);
+    if (output != nullptr)
+    {
+        if (retval != 0)
+        {
+            std::ostringstream oss;
+            oss << "Assembler failed with code " << retval << "\n";
+            output->AppendText(oss.str());
+        }
+    }
 
     if (std::filesystem::exists(outfile) == true)
     {
@@ -72,25 +86,17 @@ int Assemble(const std::string& workingDirectory, const std::string& infile, con
         {
             if (output != nullptr)
             {
-                if (output->length() > 0)
-                {
-                    *output += "\n\n";
-                }
                 std::ostringstream ss;
-                ss << "Success: " << size << " bytes written to " << outfile << ".\n";
-                ss << "ROM Checksum: 0x" << std::hex << std::uppercase << std::setw(4) << std::setfill('0') << checksum;
-                *output += ss.str();
+                ss << size << " bytes written to " << outfile << ".\n";
+                ss << "ROM Checksum: 0x" << std::hex << std::uppercase << std::setw(4) << std::setfill('0') << checksum << "\n";
+                output->AppendText(ss.str());
             }
         }
         else
         {
             if (output != nullptr)
             {
-                if (output->length() > 0)
-                {
-                    *output += "\n\n";
-                }
-                *output += "Fatal Error: Failed to calculate ROM Checksum for " + outfile;
+                output->AppendText("Fatal Error: Failed to calculate ROM Checksum for " + outfile + "\n");
             }
             if (retval == 0)
             {
@@ -102,11 +108,7 @@ int Assemble(const std::string& workingDirectory, const std::string& infile, con
     {
         if (output != nullptr)
         {
-            if (output->length() > 0)
-            {
-                *output += "\n\n";
-            }
-            *output += "Fatal Error: " + outfile + " not written.";
+            output->AppendText("Fatal Error: " + outfile + " not written.\n");
         }
         if (retval == 0)
         {
@@ -115,6 +117,17 @@ int Assemble(const std::string& workingDirectory, const std::string& infile, con
     }
 
     std::filesystem::current_path(oldPath);
+    if (output != nullptr)
+    {
+        if (retval == 0)
+        {
+            output->AppendText("Build completed successfully.\n");
+        }
+        else
+        {
+            output->AppendText("Build failed.\n");
+        }
+    }
 
     return retval;
 }

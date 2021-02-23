@@ -3,6 +3,7 @@
 
 #include <string>
 #include <cstdint>
+#include <wx/wx.h>
 
 namespace Landstalker
 {
@@ -11,7 +12,7 @@ namespace Assembler
 
 const std::string ASSEMBLER_EXECUTABLE{ "asm68k.exe" };
 
-int Assemble(const std::string& workingDirectory, const std::string& infile, const std::string& outfile, const std::string& args, std::string* output = nullptr);
+int Assemble(const std::string& workingDirectory, const std::string& infile, const std::string& outfile, const std::string& args, wxTextCtrl* output = nullptr);
 
 int FixRomChecksum(const std::string& romfile, uint16_t& checksum);
 
