@@ -8,17 +8,20 @@ An editor for modifying disassemblies of Landstalker ROMs.
 
 In addition to build-essential (compiler and make), the following libraries are required:
 - wxWidgets
+- wine (for running the 68k assembler)
 
 ### Ubuntu / Debian
 
 ```sh
- # apt install wx-common libwxbase3.0-dev libwxgtk3.0-dev
+ # apt install wx-common libwxbase3.0-dev libwxgtk3.0-dev wine-stable
 ```
 
 ### Arch Linux
 
+Firstly, [enable the multilib repositories](https://wiki.archlinux.org/index.php/Official_repositories#multilib)
+
 ```sh
- # pacman -S wxgtk3
+ # pacman -S wxgtk3 wine
  # ln -s /usr/bin/wx-config-gtk3 /usr/bin/wx-config
 ```
 
