@@ -14,7 +14,10 @@
 #include <arpa/inet.h>
 #if GCC_VERSION < 80000
 #include <experimental/filesystem>
-#define filesystem experimental::filesystem
+namespace std
+{
+namespace filesystem = experimental::filesystem;
+}
 #else
 #include <filesystem>  
 #endif
