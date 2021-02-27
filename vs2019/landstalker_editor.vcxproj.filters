@@ -33,6 +33,12 @@
     <ClCompile Include="..\src\ObjectEditor.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\HexEditor.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\FileData.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\cApp.h">
@@ -53,9 +59,24 @@
     <ClInclude Include="..\src\ObjectEditor.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\src\HexEditor.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\src\img\chest.xpm">
+      <Filter>Header Files\img</Filter>
+    </None>
+    <None Include="..\src\img\asm.xpm">
+      <Filter>Header Files\img</Filter>
+    </None>
+    <None Include="..\src\img\bin.xpm">
+      <Filter>Header Files\img</Filter>
+    </None>
+    <None Include="..\src\img\dir.xpm">
+      <Filter>Header Files\img</Filter>
+    </None>
+    <None Include="..\src\img\unk.xpm">
       <Filter>Header Files\img</Filter>
     </None>
   </ItemGroup>

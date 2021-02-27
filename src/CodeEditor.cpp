@@ -1,5 +1,19 @@
 #include "CodeEditor.h"
 
+#if defined _WIN32 || defined _WIN64
+#include <filesystem>
+#else
+#if GCC_VERSION < 80000
+#include <experimental/filesystem>
+namespace std
+{
+	namespace filesystem = experimental::filesystem;
+}
+#else
+#include <filesystem>  
+#endif
+#endif
+
 BEGIN_EVENT_TABLE(CodeEditor, wxStyledTextCtrl)
 	EVT_STC_MODIFIED(wxID_ANY, CodeEditor::OnStcModified)
 END_EVENT_TABLE()
@@ -101,7 +115,7 @@ bool CodeEditor::Save(bool prompt, bool force)
 	auto path = m_filename;
 	if (prompt == true)
 	{
-		wxFileDialog fileDlg(this, "Save file as...", m_filename.string(), m_filename.filename().string(), "All Files (*.*)|*.*", wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+		wxFileDialog fileDlg(this, "Save file as...", m_filename.generic_string(), m_filename.filename().generic_string(), "All Files (*.*)|*.*", wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
 		if (fileDlg.ShowModal() == wxID_OK)
 		{
 			path = fileDlg.GetPath().ToStdString();

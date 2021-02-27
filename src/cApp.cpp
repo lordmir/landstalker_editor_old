@@ -15,6 +15,8 @@ cApp::~cApp()
 
 bool cApp::OnInit()
 {
+	wxInitAllImageHandlers();
+
 	m_mainframe = new cMain();
 	SetTopWindow(m_mainframe);
 	m_mainframe->Show();

@@ -15,6 +15,8 @@
     <ClCompile Include="..\src\cApp.cpp" />
     <ClCompile Include="..\src\cMain.cpp" />
     <ClCompile Include="..\src\CodeEditor.cpp" />
+    <ClCompile Include="..\src\FileData.cpp" />
+    <ClCompile Include="..\src\HexEditor.cpp" />
     <ClCompile Include="..\src\ObjectEditor.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -23,10 +25,15 @@
     <ClInclude Include="..\src\Assembler.h" />
     <ClInclude Include="..\src\CodeEditor.h" />
     <ClInclude Include="..\src\FileData.h" />
+    <ClInclude Include="..\src\HexEditor.h" />
     <ClInclude Include="..\src\ObjectEditor.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\src\img\asm.xpm" />
+    <None Include="..\src\img\bin.xpm" />
     <None Include="..\src\img\chest.xpm" />
+    <None Include="..\src\img\dir.xpm" />
+    <None Include="..\src\img\unk.xpm" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>

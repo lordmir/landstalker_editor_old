@@ -11,11 +11,12 @@ wxDECLARE_EVENT(OBJECT_EDITOR_MODIFY, wxCommandEvent);
 enum class ObjectType
 {
 	UNKNOWN,
+	DIRECTORY,
 	ASSEMBLY_SOURCE,
 	BINARY
 };
 
-class ObjectEditor
+class ObjectEditor 
 {
 public:
 	ObjectEditor(wxWindow* parent, const std::string& name, const wxTreeItemId& treeId)

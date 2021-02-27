@@ -8,6 +8,7 @@
 #include <array>
 #include <sstream>
 #include <fstream>
+#include <algorithm>
 #if defined _WIN32 || defined _WIN64
 #include <filesystem>
 #else
@@ -30,8 +31,13 @@ namespace filesystem = experimental::filesystem;
 #include "Assembler.h"
 #include "FileData.h"
 #include "CodeEditor.h"
+#include "HexEditor.h"
 
 #include "img/chest.xpm"
+#include "img/unk.xpm"
+#include "img/dir.xpm"
+#include "img/asm.xpm"
+#include "img/bin.xpm"
 
 
 wxBEGIN_EVENT_TABLE(cMain, wxFrame)
@@ -82,8 +88,10 @@ cMain::cMain() : wxFrame(nullptr, wxID_ANY, "Landstalker Disassembly Editor",
 	m_fileList = new wxTreeCtrl(this, 10003);
 	m_fileList->SetWindowStyle(wxTR_HAS_BUTTONS | wxTR_NO_LINES | wxTR_HIDE_ROOT | wxTR_SINGLE);
 	wxImageList* im = new wxImageList(16, 16, true);
-	im->Add(wxArtProvider::GetIcon(wxART_NORMAL_FILE, wxART_LIST, { 16,16 }));
-	im->Add(wxArtProvider::GetIcon(wxART_FOLDER, wxART_LIST, { 16,16 }));
+	im->Add(wxBitmap(unk_xpm));
+	im->Add(wxBitmap(dir_xpm));
+	im->Add(wxBitmap(asm_xpm));
+	im->Add(wxBitmap(bin_xpm));
 	m_fileList->AssignImageList(im);
 
 	m_output = new wxTextCtrl(this, wxID_ANY, "", wxDefaultPosition, wxSize(200, 150),
@@ -92,6 +100,7 @@ cMain::cMain() : wxFrame(nullptr, wxID_ANY, "Landstalker Disassembly Editor",
 	m_output->SetFont(wxFont(10, wxFONTFAMILY_TELETYPE, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL));
 
 	m_mainEditor = new wxAuiNotebook(this, 10004);
+	m_mainEditor->AssignImageList(im);
 
 	m_mgr.AddPane(m_fileList, wxAuiPaneInfo().Direction(wxAUI_DOCK_LEFT).Layer(0).Row(0).Position(0).MinSize(100, 100).BestSize(200,100).CaptionVisible(true).MaximizeButton(false).CloseButton(false).MinimizeButton(false).PinButton(false).Caption("Files"));
 	m_mgr.AddPane(m_output, wxAuiPaneInfo().Direction(wxAUI_DOCK_BOTTOM).Layer(0).Row(0).Position(0).MinSize(100, 100).BestSize(100, 150).CaptionVisible(true).MaximizeButton(false).CloseButton(false).MinimizeButton(false).PinButton(false).Caption("Output"));
@@ -124,9 +133,28 @@ void cMain::onFileActivate(wxTreeEvent& evt)
 		const auto& d = *static_cast<Landstalker::FileData*>(m_fileList->GetItemData(evt.GetItem()));
 		if (d.IsFile() == true)
 		{
-			CodeEditor* codeEditor = new CodeEditor(this, m_fileList->GetItemText(evt.GetItem()).ToStdString(), evt.GetItem(), std::filesystem::path(d.Path()));
-			m_mainEditor->InsertPage(m_mainEditor->GetSelection() + 1, codeEditor, m_fileList->GetItemText(evt.GetItem()), true);
-			m_openDocuments.insert({ evt.GetItem(), codeEditor });
+			ObjectEditor* editor = nullptr;
+			std::filesystem::path path(d.Path());
+			std::string extension = path.extension().generic_string();
+			std::transform(extension.begin(), extension.end(), extension.begin(), [](char c) {return toupper(c);});
+			switch(d.Type())
+			{
+			case ObjectType::ASSEMBLY_SOURCE:
+				editor = new CodeEditor(this, m_fileList->GetItemText(evt.GetItem()).ToStdString(), evt.GetItem(), path);
+				break;
+			case ObjectType::BINARY:
+			case ObjectType::UNKNOWN:
+				editor = new HexEditor(this, m_fileList->GetItemText(evt.GetItem()).ToStdString(), evt.GetItem(), path);
+				break;
+			case ObjectType::DIRECTORY:
+			default:
+				break;
+			}
+			if (editor != nullptr)
+			{
+				m_mainEditor->InsertPage(m_mainEditor->GetSelection() + 1, editor->ToWindow(), m_fileList->GetItemText(evt.GetItem()), true, m_fileList->GetItemImage(evt.GetItem()));
+				m_openDocuments.insert({ evt.GetItem(), editor });
+			}
 		}
 	}
 	else
@@ -378,8 +406,8 @@ void cMain::loadProject(const std::string& path)
 		auto* d = new Landstalker::FileData(it->path().generic_string(), std::filesystem::is_regular_file(*it));
 		last = m_fileList->AppendItem(parent,
 			it->path().filename().c_str(),
-			std::filesystem::is_directory(*it) ? 1 : 0,
-			std::filesystem::is_directory(*it) ? 1 : 0,
+			static_cast<int>(d->Type()),
+			static_cast<int>(d->Type()),
 			d);
 		depth = it.depth();
 	}
