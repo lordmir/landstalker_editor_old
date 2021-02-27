@@ -29,6 +29,7 @@ namespace filesystem = experimental::filesystem;
 
 #include "Assembler.h"
 #include "FileData.h"
+#include "CodeEditor.h"
 
 #include "img/chest.xpm"
 
@@ -47,7 +48,7 @@ wxBEGIN_EVENT_TABLE(cMain, wxFrame)
 	EVT_MENU(wxID_ABOUT, cMain::onMenuAbout)
 	EVT_TREE_ITEM_ACTIVATED(10003, cMain::onFileActivate)
 	EVT_AUINOTEBOOK_PAGE_CLOSE(10004, cMain::onAuiNotebookPageClose)
-	EVT_STC_MODIFIED(wxID_ANY, cMain::OnStcModified)
+	EVT_COMMAND(wxID_ANY, OBJECT_EDITOR_MODIFY, cMain::onObjectEditorModify)
 	EVT_CLOSE(cMain::onClose)
 wxEND_EVENT_TABLE()
 
@@ -58,7 +59,7 @@ cMain::cMain() : wxFrame(nullptr, wxID_ANY, "Landstalker Disassembly Editor",
 
 	m_menu = new wxMenuBar();
 	wxMenu* fileMenu = new wxMenu();
-	fileMenu->Append(wxID_OPEN, "&Open...\tCtrl+O");
+	fileMenu->Append(wxID_OPEN, "&Open Disassembly...\tCtrl+O");
 	fileMenu->Append(wxID_SAVE, "&Save\tCtrl+S");
 	fileMenu->Append(wxID_SAVEAS, "Save &As...\tCtrl+Shift+S");
 	fileMenu->Append(10001, "Save A&ll\tCtrl+Alt+S");
@@ -97,6 +98,7 @@ cMain::cMain() : wxFrame(nullptr, wxID_ANY, "Landstalker Disassembly Editor",
 	m_mgr.AddPane(m_mainEditor, wxAuiPaneInfo().Direction(wxAUI_DOCK_CENTER).Layer(0).Row(0).Position(0).MinSize(100, 100).CaptionVisible(false).MaximizeButton(false).CloseButton(false).MinimizeButton(false).PinButton(false));
 
 	m_mgr.Update();
+	updateAllMenuStates();
 }
 
 cMain::~cMain()
@@ -122,99 +124,14 @@ void cMain::onFileActivate(wxTreeEvent& evt)
 		const auto& d = *static_cast<Landstalker::FileData*>(m_fileList->GetItemData(evt.GetItem()));
 		if (d.IsFile() == true)
 		{
-			wxStyledTextCtrl* codeEditor = new wxStyledTextCtrl(this, wxID_ANY, wxDefaultPosition, wxSize(200, 150), wxNO_BORDER | wxTE_MULTILINE);
-			codeEditor->SetFont(wxFont(10, wxFONTFAMILY_TELETYPE, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL));
-			codeEditor->SetLexer(wxSTC_LEX_A68K);
-			for (int i = 0; i < wxSTC_STYLE_LASTPREDEFINED; i++) {
-				wxFont font(wxFontInfo(10).Family(wxFONTFAMILY_TELETYPE));
-				codeEditor->StyleSetFont(i, font);
-			}
-			codeEditor->SetMarginType(0, wxSTC_MARGIN_NUMBER);
-			codeEditor->StyleSetForeground(wxSTC_STYLE_LINENUMBER, wxColour("DARK GREY"));
-			codeEditor->StyleSetBackground(wxSTC_STYLE_LINENUMBER, *wxWHITE);
-			codeEditor->SetMarginWidth(0, codeEditor->TextWidth(wxSTC_STYLE_LINENUMBER, "_999999"));
-			// set common styles
-			codeEditor->StyleSetForeground(wxSTC_STYLE_DEFAULT, wxColour("DARK GREY"));
-			codeEditor->StyleSetForeground(wxSTC_STYLE_INDENTGUIDE, wxColour("DARK GREY"));
-			codeEditor->StyleSetForeground(wxSTC_A68K_COMMENT, wxColour("FOREST GREEN"));
-			codeEditor->StyleSetForeground(wxSTC_A68K_COMMENT_DOXYGEN, wxColour("FOREST GREEN"));
-			codeEditor->StyleSetForeground(wxSTC_A68K_COMMENT_SPECIAL, wxColour("FOREST GREEN"));
-			codeEditor->StyleSetForeground(wxSTC_A68K_COMMENT_WORD, wxColour("FOREST GREEN"));
-			codeEditor->StyleSetForeground(wxSTC_A68K_CPUINSTRUCTION, wxColour("NAVY"));
-			codeEditor->StyleSetBold(wxSTC_A68K_CPUINSTRUCTION, true);
-			codeEditor->StyleSetForeground(wxSTC_A68K_DIRECTIVE, wxColour("BLUE"));
-			codeEditor->StyleSetForeground(wxSTC_A68K_EXTINSTRUCTION, wxColour("MAGENTA"));
-			//codeEditor->StyleSetForeground(wxSTC_A68K_IDENTIFIER, wxColour("BLACK"));
-			codeEditor->StyleSetForeground(wxSTC_A68K_LABEL, wxColour(0, 127, 127));
-			codeEditor->StyleSetForeground(wxSTC_A68K_MACRO_ARG, wxColour("PURPLE"));
-			codeEditor->StyleSetForeground(wxSTC_A68K_MACRO_DECLARATION, wxColour("PURPLE"));
-			codeEditor->StyleSetForeground(wxSTC_A68K_NUMBER_BIN, wxColour("BROWN"));
-			codeEditor->StyleSetForeground(wxSTC_A68K_NUMBER_DEC, wxColour("BROWN"));
-			codeEditor->StyleSetForeground(wxSTC_A68K_NUMBER_HEX, wxColour("BROWN"));
-			codeEditor->StyleSetForeground(wxSTC_A68K_OPERATOR, wxColour("NAVY"));
-			codeEditor->StyleSetBold(wxSTC_A68K_OPERATOR, true);
-			codeEditor->StyleSetForeground(wxSTC_A68K_REGISTER, wxColour("BLUE"));
-			codeEditor->StyleSetBold(wxSTC_A68K_REGISTER, true);
-			codeEditor->StyleSetForeground(wxSTC_A68K_STRING1, wxColour("BROWN"));
-			codeEditor->StyleSetForeground(wxSTC_A68K_STRING2, wxColour("BROWN"));
-			codeEditor->SetKeyWords(0, "abcd abcd.b add add.b add.w add.l adda adda.w adda.l "
-			                           "addi addi.b addi.w addi.l addq addq.b addq.w addq.l "
-			                           "addx addx.b addx.w addx.l and and.b and.w and.l "
-			                           "andi andi.b andi.w andi.l asl asl.b asl.w asl.l "
-			                           "asr asr.b asr.w asr.l bcc bcc.s bcc.w bcs bcs.s bcs.w "
-			                           "beq beq.s beq.w bge bge.s bge.w bgt bgt.s bgt.w "
-				                       "bhi bhi.s bhi.w ble ble.s ble.w bls bls.s bls.w "
-			                           "blt blt.s blt.w bmi bmi.s bmi.w bne bne.s bne.w "
-			                           "bpl bpl.s bpl.w bvc bvc.s bvc.w bvs bvs.s bvs.w "
-			                           "bchg bchg.b bchg.l bclr bclr.b bclr.l bra.s bra.w "
-			                           "bset bset.b bset.l bsr bsr.s bsr.w btst btst.b btst.w "
-			                           "chk chk.w clr clr.b clr.w clr.l cmp cmp.b cmp.w cmp.l "
-			                           "cmpa cmpa.w cmpa.l cmpi cmpi.b cmpi.w cmpi.l "
-				                       "cmpm cmpm.b cmpm.w cmpm.l dbcc dbcc.w dbcs dbcs.w "
-				                       "dbeq dbeq.w dbge dbge.w dbgt dbgt.w dbhi dbhi.w "
-				                       "dble dble.w dbls dbls.w dblt dblt.w dbmi dbmi.w "
-				                       "dbne dbne.w dbpl dbpl.w dbvc dbvc.w dbvs dbvs.w "
-				                       "dbf dbf.w dbt dbt.w dbra dbra.w divs divs.w divs.l "
-				                       "divu divu.w divu.l eor eor.b eor.w eor.l eori eori.b "
-                                       "eori.w eori.l exg exg.l ext ext.w ext.l illegal jmp "
-				                       "jsr lea lea.l link link lsl lsl.b lsl.w lsl.l "
-				                       "lsr lsr.b lsr.w lsr.l move move.b move.w move.l "
-				                       "movea movea.w movea.l movem movem.w movem.l movep "
-				                       "movep.w movep.l moveq moveq.l muls muls.w mulu mulu.w "
-				                       "nbcd nbcd.b neg neg.b neg.w neg.l negx negx.b negx.w "
-				                       "negx.l nop not not.b not.w not.l or or.b or.w or.l "
-				                       "ori ori.b ori.w ori.l pea pea.l reset rol rol.b rol.w "
-				                       "rol.l ror ror.b ror.w ror.l roxl roxl.b roxl.w roxl.l "
-				                       "roxr roxr.b roxr.w roxr.l rte rtr rts sbcd sbcd.b "
-				                       "scc scc.b scs scs.b seq seq.b sge sge.b sgt sgt.b "
-				                       "shi shi.b sle sle.b sls sls.b slt slt.b smi smi.b "
-				                       "sne sne.b spl spl.b svc svc.b svs svs.b stop sub "
-				                       "sub.b sub.w sub.l suba suba.w suba.l subi subi.b "
-				                       "subi.w subi.l subq subq.b subq.w subq.l subx subx.b "
-				                       "subx.w subx.l swap swap.w tas tas.b trap trapv "
-				                       "tst tst.b tst.w tst.l ulnk"); // Instructions
-			codeEditor->SetKeyWords(1, "d0 d1 d2 d3 d4 d5 d6 d7 a0 a1 a2 a3 a4 a5 a6 a7 sp sr usp ssp ccr"); // Registers
-			codeEditor->SetKeyWords(2, "dc dc.b dc.w dc.l dcb dcb.b dcb.w dcb.l ds ds.b ds.w ds.l "
-				                       "_year _month _day _weekday _hours _minutes _seconds narg __rs "
-				                       "_filename def ref type sqrt strlen strcmp instr sect offset sectoff "
-			                           "group groupoff filesize groupsize grouporg groupend sectend sectsize "
-			                           "alignment radix alias disable equ set equs equr reg rs rs.b rs.w rs.l "
-			                           "rsset rsreset hex data datasize ieee32 ieee64 org even cnop obj objend "
-			                           "include incbin end if else elseif endif case endcase rept endr while "
-			                           "endw do until regs unit macro endm mexit shift macros pushp popp purge "
-			                           "type substr module modend local section group pushs pops word bss size "
-			                           "over opt pusho popo list nolist inform fail xref xdef public global "); // Directives
-			codeEditor->SetKeyWords(3, "ScriptID ScriptJump Align PadTo ROM_End UnlockSRAM LockSRAM ExpandBsr "); // External Instructions
-			codeEditor->LoadFile(d.Path());
-			codeEditor->SetSavePoint();
-			
+			CodeEditor* codeEditor = new CodeEditor(this, m_fileList->GetItemText(evt.GetItem()).ToStdString(), evt.GetItem(), std::filesystem::path(d.Path()));
 			m_mainEditor->InsertPage(m_mainEditor->GetSelection() + 1, codeEditor, m_fileList->GetItemText(evt.GetItem()), true);
 			m_openDocuments.insert({ evt.GetItem(), codeEditor });
 		}
 	}
 	else
 	{
-		auto pageId = m_mainEditor->GetPageIndex(doc->second);
+		auto pageId = m_mainEditor->GetPageIndex(doc->second->ToWindow());
 		if (pageId == wxNOT_FOUND)
 		{
 			m_openDocuments.erase(evt.GetItem());
@@ -224,55 +141,20 @@ void cMain::onFileActivate(wxTreeEvent& evt)
 			m_mainEditor->ChangeSelection(pageId);
 		}
 	}
+	updateAllMenuStates();
 	evt.Skip();
 }
 
 void cMain::onAuiNotebookPageClose(wxAuiNotebookEvent& evt)
 {
-	auto* window = m_mainEditor->GetPage(evt.GetSelection());
-	auto it = m_openDocuments.begin();
-	while (it != m_openDocuments.end())
+	auto* editor = dynamic_cast<ObjectEditor*>(m_mainEditor->GetPage(evt.GetSelection()));
+	auto it = m_openDocuments.find(editor->GetTreeItemId());
+	if (it != m_openDocuments.end())
 	{
-		if (it->second == window)
-		{
-			if (closeTab(it) == false)
-			{
-				break;
-			}
-		}
-		else
-		{
-			++it;
-		}
+		closeTab(it);
 	}
 	// Always veto, as we close tabs programatically
 	evt.Veto();
-	evt.Skip();
-}
-
-void cMain::OnStcModified(wxStyledTextEvent& evt)
-{
-	auto* tab = static_cast<wxStyledTextCtrl*>(evt.GetEventObject());
-	auto id = m_mainEditor->GetPageIndex(tab);
-	if (id != wxNOT_FOUND)
-	{
-		wxTreeItemId treeItem;
-		for (auto d : m_openDocuments)
-		{
-			if (d.second == tab)
-				treeItem = d.first;
-		}
-		std::string path = static_cast<Landstalker::FileData*>(m_fileList->GetItemData(treeItem))->Path();
-		std::string fname = m_fileList->GetItemText(treeItem).ToStdString();
-		if (tab->IsModified() == true)
-		{
-			m_mainEditor->SetPageText(id, fname + "*");
-		}
-		else
-		{
-			m_mainEditor->SetPageText(id, fname);
-		}
-	}
 	evt.Skip();
 }
 
@@ -284,13 +166,19 @@ void cMain::onMenuOpen(wxCommandEvent& evt)
 
 void cMain::onMenuSave(wxCommandEvent& evt)
 {
-	saveFile(m_mainEditor->GetPage(m_mainEditor->GetSelection()));
+	if (m_openDocuments.empty() == false)
+	{
+		dynamic_cast<ObjectEditor*>(m_mainEditor->GetPage(m_mainEditor->GetSelection()))->Save(false);
+	}
 	evt.Skip();
 }
 
 void cMain::onMenuSaveAs(wxCommandEvent& evt)
 {
-	saveFile(m_mainEditor->GetPage(m_mainEditor->GetSelection()), true);
+	if (m_openDocuments.empty() == false)
+	{
+		dynamic_cast<ObjectEditor*>(m_mainEditor->GetPage(m_mainEditor->GetSelection()))->Save(true);
+	}
 	evt.Skip();
 }
 
@@ -320,21 +208,11 @@ void cMain::onMenuClose(wxCommandEvent& evt)
 
 void cMain::onMenuCloseTab(wxCommandEvent& evt)
 {
-	auto it = m_openDocuments.begin();
-	auto* currentPage = m_mainEditor->GetPage(m_mainEditor->GetSelection());
-	while (it != m_openDocuments.end())
+	auto* editor = dynamic_cast<ObjectEditor*>(m_mainEditor->GetPage(m_mainEditor->GetSelection()));
+	auto it = m_openDocuments.find(editor->GetTreeItemId());
+	if (it != m_openDocuments.end())
 	{
-		if (it->second == currentPage)
-		{
-			if (closeTab(it) == false)
-			{
-				break;
-			}
-		}
-		else
-		{
-			it++;
-		}
+		closeTab(it);
 	}
 	evt.Skip();
 }
@@ -347,10 +225,11 @@ void cMain::onMenuCloseAll(wxCommandEvent& evt)
 void cMain::onMenuCloseAllButThis(wxCommandEvent& evt)
 {
 	auto it = m_openDocuments.begin();
-	auto* currentPage = m_mainEditor->GetPage(m_mainEditor->GetSelection());
+	auto* editor = dynamic_cast<ObjectEditor*>(m_mainEditor->GetPage(m_mainEditor->GetSelection()));
+	auto id = editor->GetTreeItemId();
 	while (it != m_openDocuments.end())
 	{
-		if (it->second != currentPage)
+		if (it->first != id)
 		{
 			if (closeTab(it) == false)
 			{
@@ -388,30 +267,27 @@ void cMain::onClose(wxCloseEvent& evt)
 	evt.Skip();
 }
 
-bool cMain::closeTab(std::map<wxTreeItemId, wxWindow*>::iterator& it)
+void cMain::onObjectEditorModify(wxCommandEvent& evt)
 {
-	bool ok = true;
-	auto* tab = static_cast<wxStyledTextCtrl*>(it->second);
-	if (tab->IsModified())
+	auto* tab = dynamic_cast<ObjectEditor*>(evt.GetEventObject());
+	auto id = m_mainEditor->GetPageIndex(static_cast<wxWindow*>(evt.GetEventObject()));
+	if (id != wxNOT_FOUND)
 	{
-		auto path = static_cast<Landstalker::FileData*>(m_fileList->GetItemData(it->first))->Path();
-		std::string msg("Do you want to save changes to " + m_fileList->GetItemText(it->first) + "?");
-		auto result = wxMessageBox(msg, "Save Changes", wxYES_NO | wxCANCEL, this);
-		if (result == wxYES)
-		{
-			saveFile(tab);
-		}
-		else if (result == wxCANCEL)
-		{
-			ok = false;
-		}
+		m_mainEditor->SetPageText(id, tab->GetDisplayTitle());
 	}
-	if (ok == true)
+	evt.Skip();
+}
+
+bool cMain::closeTab(std::map<wxTreeItemId, ObjectEditor*>::iterator& it)
+{
+	if (it->second->Close() == true)
 	{
-		m_mainEditor->DeletePage(m_mainEditor->GetPageIndex(tab));
+		m_mainEditor->DeletePage(m_mainEditor->GetPageIndex(it->second->ToWindow()));
 		it = m_openDocuments.erase(it);
+		updateAllMenuStates();
+		return true;
 	}
-	return ok;
+	return false;
 }
 
 bool cMain::closeAll()
@@ -424,6 +300,7 @@ bool cMain::closeAll()
 			return false;
 		}
 	}
+	updateAllMenuStates();
 	return true;
 }
 
@@ -431,7 +308,7 @@ void cMain::saveAll()
 {
 	for (auto d : m_openDocuments)
 	{
-		saveFile(d.second);
+		d.second->Save(false);
 	}
 }
 
@@ -454,38 +331,6 @@ void cMain::buildRom(bool promptForFilename)
 		}
 	}
 	Landstalker::Assembler::Assemble(m_disassemblyPath, "landstalker.asm", m_romPath, "/p /o ae-,e+,w+,c+,op+,os+,ow+,oz+,l_ /e EXPANDED=0", m_output);
-}
-
-void cMain::saveFile(wxWindow* file, bool promptForFilename, bool force)
-{
-	wxStyledTextCtrl* tab = static_cast<wxStyledTextCtrl*>(m_mainEditor->GetPage(m_mainEditor->GetSelection()));
-	wxTreeItemId treeItem;
-	for (auto d : m_openDocuments)
-	{
-		if (d.second == tab)
-			treeItem = d.first;
-	}
-	std::string path = static_cast<Landstalker::FileData*>(m_fileList->GetItemData(treeItem))->Path();
-	std::string fname = m_fileList->GetItemText(treeItem).ToStdString();
-	if (promptForFilename == true)
-	{
-		wxFileDialog fileDlg(this, "Save file as...", path, fname, "All Files (*.*)|*.*", wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
-		if (fileDlg.ShowModal() == wxID_OK)
-		{
-			path = fileDlg.GetPath().ToStdString();
-		}
-		else
-		{
-			return;
-		}
-	}
-	if (tab->IsModified() || promptForFilename || force)
-	{
-		tab->SaveFile(path);
-		m_mainEditor->SetPageText(m_mainEditor->GetSelection(), fname);
-		tab->SetSavePoint();
-	}
-
 }
 
 void cMain::openProject()
@@ -538,6 +383,8 @@ void cMain::loadProject(const std::string& path)
 			d);
 		depth = it.depth();
 	}
+	m_opened = true;
+	updateAllMenuStates();
 }
 
 bool cMain::promptSaveAll()
@@ -545,7 +392,7 @@ bool cMain::promptSaveAll()
 	bool modified = false;
 	for (auto d : m_openDocuments)
 	{
-		if (static_cast<wxStyledTextCtrl*>(d.second)->IsModified())
+		if (static_cast<ObjectEditor*>(d.second)->IsModified())
 		{
 			modified = true;
 			break;
@@ -569,6 +416,53 @@ bool cMain::promptSaveAll()
 void cMain::showAboutBox()
 {
 	cAboutDlg dlg(this);
+}
+
+void cMain::updateMenuState(const std::string& menu, const std::string& submenu, bool enabled)
+{
+	auto id = m_menu->FindMenuItem(menu, submenu);
+	if (id != wxNOT_FOUND)
+	{
+		m_menu->Enable(id, enabled);
+	}
+}
+
+void cMain::updateAllMenuStates()
+{
+	if (m_opened == false)
+	{
+		updateMenuState("File", "Save", false);
+		updateMenuState("File", "Save As...", false);
+		updateMenuState("File", "Save All", false);
+		updateMenuState("File", "Build ROM", false);
+		updateMenuState("File", "Build ROM As...", false);
+		updateMenuState("Window", "Close", false);
+		updateMenuState("Window", "Close All", false);
+		updateMenuState("Window", "Close All But This", false);
+	}
+	else
+	{
+		updateMenuState("File", "Build ROM", true);
+		updateMenuState("File", "Build ROM As...", true);
+		if (m_openDocuments.empty() == true)
+		{
+			updateMenuState("File", "Save", false);
+			updateMenuState("File", "Save As...", false);
+			updateMenuState("File", "Save All", false);
+			updateMenuState("Window", "Close", false);
+			updateMenuState("Window", "Close All", false);
+			updateMenuState("Window", "Close All But This", false);
+		}
+		else
+		{
+			updateMenuState("File", "Save", true);
+			updateMenuState("File", "Save As...", true);
+			updateMenuState("File", "Save All", true);
+			updateMenuState("Window", "Close", true);
+			updateMenuState("Window", "Close All", true);
+			updateMenuState("Window", "Close All But This", true);
+		}
+	}
 }
 
 cAboutDlg::cAboutDlg(wxWindow* parent, long style)

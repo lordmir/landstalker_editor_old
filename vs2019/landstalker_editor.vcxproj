@@ -14,12 +14,16 @@
     <ClCompile Include="..\src\Assembler.cpp" />
     <ClCompile Include="..\src\cApp.cpp" />
     <ClCompile Include="..\src\cMain.cpp" />
+    <ClCompile Include="..\src\CodeEditor.cpp" />
+    <ClCompile Include="..\src\ObjectEditor.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\cApp.h" />
     <ClInclude Include="..\src\cMain.h" />
     <ClInclude Include="..\src\Assembler.h" />
+    <ClInclude Include="..\src\CodeEditor.h" />
     <ClInclude Include="..\src\FileData.h" />
+    <ClInclude Include="..\src\ObjectEditor.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\src\img\chest.xpm" />

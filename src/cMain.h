@@ -9,6 +9,7 @@
 #include "wx/treectrl.h"
 #include <wx/stc/stc.h>
 
+#include "ObjectEditor.h"
 
 #define APP_NAME "Landstalker Editor"
 #define APP_DESCR "Editor for Landstalker Disassemblies"
@@ -38,7 +39,6 @@ private:
 	void onBuildButtonClick(wxCommandEvent& evt);
 	void onFileActivate(wxTreeEvent& evt);
 	void onAuiNotebookPageClose(wxAuiNotebookEvent& evt);
-	void OnStcModified(wxStyledTextEvent& evt);
 	void onMenuOpen(wxCommandEvent& evt);
 	void onMenuSave(wxCommandEvent& evt);
 	void onMenuSaveAs(wxCommandEvent& evt);
@@ -51,16 +51,18 @@ private:
 	void onMenuCloseAllButThis(wxCommandEvent& evt);
 	void onMenuAbout(wxCommandEvent& evt);
 	void onClose(wxCloseEvent& evt);
+	void onObjectEditorModify(wxCommandEvent& evt);
 
-	bool closeTab(std::map<wxTreeItemId, wxWindow*>::iterator& it);
+	bool closeTab(std::map<wxTreeItemId, ObjectEditor*>::iterator& it);
 	bool closeAll();
 	void saveAll();
 	void buildRom(bool promptForFilename = false);
-	void saveFile(wxWindow* file, bool promptForFilename = false, bool force = false);
 	void openProject();
 	void loadProject(const std::string& path);
 	bool promptSaveAll();
 	void showAboutBox();
+	void updateMenuState(const std::string& menu, const std::string& submenu, bool enabled = true);
+	void updateAllMenuStates();
 
 	wxAuiManager m_mgr;
 
@@ -71,17 +73,14 @@ private:
 
 	std::string m_disassemblyPath;
 	std::string m_romPath;
-	std::map<wxTreeItemId, wxWindow*> m_openDocuments;
+	std::map<wxTreeItemId, ObjectEditor*> m_openDocuments;
+	bool m_opened{ false };
 };
 
 class cAboutDlg : public wxDialog {
 
 public:
-	//! constructor
-	cAboutDlg(wxWindow* parent,
-		      long style = 0);
-
-	//! destructor
+	cAboutDlg(wxWindow* parent, long style = 0);
 	~cAboutDlg();
 }; 
 
