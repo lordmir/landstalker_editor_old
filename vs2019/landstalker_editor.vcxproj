@@ -21,6 +21,9 @@
     <ClInclude Include="..\src\Assembler.h" />
     <ClInclude Include="..\src\FileData.h" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="..\src\img\chest.xpm" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <ProjectGuid>{16929D17-8A7F-4A32-9410-071F6F0C22C6}</ProjectGuid>

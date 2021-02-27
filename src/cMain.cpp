@@ -25,9 +25,12 @@ namespace filesystem = experimental::filesystem;
 #include <wx/artprov.h>
 #include <wx/image.h>
 #include <wx/imaglist.h>
+#include <wx/hyperlink.h>
 
 #include "Assembler.h"
 #include "FileData.h"
+
+#include "img/chest.xpm"
 
 
 wxBEGIN_EVENT_TABLE(cMain, wxFrame)
@@ -41,6 +44,7 @@ wxBEGIN_EVENT_TABLE(cMain, wxFrame)
 	EVT_MENU(10004, cMain::onMenuCloseTab)
 	EVT_MENU(10005, cMain::onMenuCloseAll)
 	EVT_MENU(10006, cMain::onMenuCloseAllButThis)
+	EVT_MENU(wxID_ABOUT, cMain::onMenuAbout)
 	EVT_TREE_ITEM_ACTIVATED(10003, cMain::onFileActivate)
 	EVT_AUINOTEBOOK_PAGE_CLOSE(10004, cMain::onAuiNotebookPageClose)
 	EVT_STC_MODIFIED(wxID_ANY, cMain::OnStcModified)
@@ -50,6 +54,8 @@ wxEND_EVENT_TABLE()
 cMain::cMain() : wxFrame(nullptr, wxID_ANY, "Landstalker Disassembly Editor",
                          wxDefaultPosition, wxSize(800, 600), wxDEFAULT_FRAME_STYLE)
 {
+	SetIcon(chest_xpm);
+
 	m_menu = new wxMenuBar();
 	wxMenu* fileMenu = new wxMenu();
 	fileMenu->Append(wxID_OPEN, "&Open...\tCtrl+O");
@@ -65,6 +71,9 @@ cMain::cMain() : wxFrame(nullptr, wxID_ANY, "Landstalker Disassembly Editor",
 	windowMenu->Append(10005, "Close &All\tCtrl+Shift+W");
 	windowMenu->Append(10006, "Close All &But This\tCtrl+Alt+W");
 	m_menu->Append(windowMenu, "&Window");
+	wxMenu* helpMenu = new wxMenu();
+	helpMenu->Append(wxID_ABOUT, "&About...");
+	m_menu->Append(helpMenu, "&Help");
 	SetMenuBar(m_menu);
 
 	m_mgr.SetManagedWindow(this);
@@ -269,125 +278,37 @@ void cMain::OnStcModified(wxStyledTextEvent& evt)
 
 void cMain::onMenuOpen(wxCommandEvent& evt)
 {
-	auto it = m_openDocuments.begin();
-	while (it != m_openDocuments.end())
-	{
-		if (closeTab(it) == false)
-		{
-			return;
-		}
-	}
-	wxDirDialog dir(this, "Select the disassembly directory", "", wxDD_DEFAULT_STYLE | wxDD_DIR_MUST_EXIST);
-	if (dir.ShowModal() == wxID_OK)
-	{
-		m_mainEditor->DeleteAllPages();
-		m_openDocuments.clear();
-		m_disassemblyPath = dir.GetPath();
-		m_romPath = dir.GetPath() + "/landstalker.bin";
-
-		m_fileList->DeleteAllItems();
-
-		auto parent = m_fileList->AddRoot(".");
-		auto last = parent;
-		int depth = 0;
-		for (auto it = std::filesystem::recursive_directory_iterator(m_disassemblyPath);
-			it != std::filesystem::recursive_directory_iterator(); ++it)
-		{
-			if (depth < it.depth())
-			{
-				// last item was a directory
-				parent = last;
-			}
-			else
-			{
-				while (depth > it.depth())
-				{
-					// finished for this directory
-					parent = m_fileList->GetItemParent(parent);
-					depth--;
-				}
-			}
-			auto* d = new Landstalker::FileData(it->path().generic_string(), std::filesystem::is_regular_file(*it));
-			last = m_fileList->AppendItem(parent,
-				it->path().filename().c_str(),
-				std::filesystem::is_directory(*it) ? 1 : 0,
-				std::filesystem::is_directory(*it) ? 1 : 0,
-				d);
-			depth = it.depth();
-		}
-	}
+	openProject();
 	evt.Skip();
 }
 
 void cMain::onMenuSave(wxCommandEvent& evt)
 {
-	wxStyledTextCtrl* tab = static_cast<wxStyledTextCtrl*>(m_mainEditor->GetPage(m_mainEditor->GetSelection()));
-	wxTreeItemId treeItem;
-	for (auto d : m_openDocuments)
-	{
-		if (d.second == tab)
-			treeItem = d.first;
-	}
-	std::string path = static_cast<Landstalker::FileData*>(m_fileList->GetItemData(treeItem))->Path();
-	std::string fname = m_fileList->GetItemText(treeItem).ToStdString();
-	tab->SaveFile(path);
-	m_mainEditor->SetPageText(m_mainEditor->GetSelection(), fname);
-	tab->SetSavePoint();
+	saveFile(m_mainEditor->GetPage(m_mainEditor->GetSelection()));
 	evt.Skip();
 }
 
 void cMain::onMenuSaveAs(wxCommandEvent& evt)
 {
-	wxStyledTextCtrl* tab = static_cast<wxStyledTextCtrl*>(m_mainEditor->GetPage(m_mainEditor->GetSelection()));
-	wxTreeItemId treeItem;
-	for (auto d : m_openDocuments)
-	{
-		if (d.second == tab)
-			treeItem = d.first;
-	}
-	std::string path = static_cast<Landstalker::FileData*>(m_fileList->GetItemData(treeItem))->Path();
-	std::string fname = m_fileList->GetItemText(treeItem).ToStdString();
-	wxFileDialog fileDlg(this, "Save file as...", path, fname, "All Files (*.*)|*.*", wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
-	if (fileDlg.ShowModal() == wxID_OK)
-	{
-		tab->SaveFile(path);
-		m_mainEditor->SetPageText(m_mainEditor->GetSelection(), fname);
-		tab->SetSavePoint();
-	}
+	saveFile(m_mainEditor->GetPage(m_mainEditor->GetSelection()), true);
 	evt.Skip();
 }
 
 void cMain::onMenuSaveAll(wxCommandEvent& evt)
 {
-	for (auto d : m_openDocuments)
-	{
-		auto* tab = static_cast<wxStyledTextCtrl*>(d.second);
-		if (tab->IsModified())
-		{
-			std::string path = static_cast<Landstalker::FileData*>(m_fileList->GetItemData(d.first))->Path();
-			std::string fname = m_fileList->GetItemText(d.first).ToStdString();
-			auto id = m_mainEditor->GetPageIndex(tab);
-			tab->SaveFile(path);
-			m_mainEditor->SetPageText(id, fname);
-		}
-	}
+	saveAll();
 	evt.Skip();
 }
 
 void cMain::onMenuBuildRom(wxCommandEvent& evt)
 {
-	Landstalker::Assembler::Assemble(m_disassemblyPath, "landstalker.asm", m_romPath, "/p /o ae-,e+,w+,c+,op+,os+,ow+,oz+,l_ /e EXPANDED=0", m_output);
+	buildRom(false);
 	evt.Skip();
 }
 
 void cMain::onMenuBuildRomAs(wxCommandEvent& evt)
 {
-	wxFileDialog fileDlg(this, "Save built ROM As", m_disassemblyPath, "landstalker.bin", "Sega Genesis ROM (*.bin)|*.bin", wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
-	if (fileDlg.ShowModal() == wxID_OK)
-	{
-		m_romPath = fileDlg.GetPath().ToStdString();
-		onMenuBuildRom(evt);
-	}
+	buildRom(true);
 	evt.Skip();
 }
 
@@ -420,15 +341,7 @@ void cMain::onMenuCloseTab(wxCommandEvent& evt)
 
 void cMain::onMenuCloseAll(wxCommandEvent& evt)
 {
-	auto it = m_openDocuments.begin();
-	auto* currentPage = m_mainEditor->GetPage(m_mainEditor->GetSelection());
-	while (it != m_openDocuments.end())
-	{
-		if (closeTab(it) == false)
-		{
-			break;
-		}
-	}
+	closeAll();
 }
 
 void cMain::onMenuCloseAllButThis(wxCommandEvent& evt)
@@ -450,6 +363,11 @@ void cMain::onMenuCloseAllButThis(wxCommandEvent& evt)
 		}
 	}
 	evt.Skip();
+}
+
+void cMain::onMenuAbout(wxCommandEvent& evt)
+{
+	showAboutBox();
 }
 
 void cMain::onClose(wxCloseEvent& evt)
@@ -481,7 +399,7 @@ bool cMain::closeTab(std::map<wxTreeItemId, wxWindow*>::iterator& it)
 		auto result = wxMessageBox(msg, "Save Changes", wxYES_NO | wxCANCEL, this);
 		if (result == wxYES)
 		{
-			tab->SaveFile(path);
+			saveFile(tab);
 		}
 		else if (result == wxCANCEL)
 		{
@@ -494,4 +412,232 @@ bool cMain::closeTab(std::map<wxTreeItemId, wxWindow*>::iterator& it)
 		it = m_openDocuments.erase(it);
 	}
 	return ok;
+}
+
+bool cMain::closeAll()
+{
+	auto it = m_openDocuments.begin();
+	while (it != m_openDocuments.end())
+	{
+		if (closeTab(it) == false)
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+void cMain::saveAll()
+{
+	for (auto d : m_openDocuments)
+	{
+		saveFile(d.second);
+	}
+}
+
+void cMain::buildRom(bool promptForFilename)
+{
+	if (promptSaveAll() == false)
+	{
+		return;
+	}
+	if (promptForFilename == true)
+	{
+		wxFileDialog fileDlg(this, "Save built ROM As", m_disassemblyPath, "landstalker.bin", "Sega Genesis ROM (*.bin)|*.bin", wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+		if (fileDlg.ShowModal() == wxID_OK)
+		{
+			m_romPath = fileDlg.GetPath().ToStdString();
+		}
+		else
+		{
+			return;
+		}
+	}
+	Landstalker::Assembler::Assemble(m_disassemblyPath, "landstalker.asm", m_romPath, "/p /o ae-,e+,w+,c+,op+,os+,ow+,oz+,l_ /e EXPANDED=0", m_output);
+}
+
+void cMain::saveFile(wxWindow* file, bool promptForFilename, bool force)
+{
+	wxStyledTextCtrl* tab = static_cast<wxStyledTextCtrl*>(m_mainEditor->GetPage(m_mainEditor->GetSelection()));
+	wxTreeItemId treeItem;
+	for (auto d : m_openDocuments)
+	{
+		if (d.second == tab)
+			treeItem = d.first;
+	}
+	std::string path = static_cast<Landstalker::FileData*>(m_fileList->GetItemData(treeItem))->Path();
+	std::string fname = m_fileList->GetItemText(treeItem).ToStdString();
+	if (promptForFilename == true)
+	{
+		wxFileDialog fileDlg(this, "Save file as...", path, fname, "All Files (*.*)|*.*", wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+		if (fileDlg.ShowModal() == wxID_OK)
+		{
+			path = fileDlg.GetPath().ToStdString();
+		}
+		else
+		{
+			return;
+		}
+	}
+	if (tab->IsModified() || promptForFilename || force)
+	{
+		tab->SaveFile(path);
+		m_mainEditor->SetPageText(m_mainEditor->GetSelection(), fname);
+		tab->SetSavePoint();
+	}
+
+}
+
+void cMain::openProject()
+{
+	if (closeAll() == false)
+	{
+		return;
+	}
+	wxDirDialog dir(this, "Select the disassembly directory", "", wxDD_DEFAULT_STYLE | wxDD_DIR_MUST_EXIST);
+	if (dir.ShowModal() == wxID_OK)
+	{
+		loadProject(dir.GetPath().ToStdString());
+	}
+}
+
+void cMain::loadProject(const std::string& path)
+{
+	m_mainEditor->DeleteAllPages();
+	m_openDocuments.clear();
+	m_disassemblyPath = path;
+	m_romPath = path + "/landstalker.bin";
+
+	m_fileList->DeleteAllItems();
+
+	auto parent = m_fileList->AddRoot(".");
+	auto last = parent;
+	int depth = 0;
+	for (auto it = std::filesystem::recursive_directory_iterator(m_disassemblyPath);
+		it != std::filesystem::recursive_directory_iterator(); ++it)
+	{
+		if (depth < it.depth())
+		{
+			// last item was a directory
+			parent = last;
+		}
+		else
+		{
+			while (depth > it.depth())
+			{
+				// finished for this directory
+				parent = m_fileList->GetItemParent(parent);
+				depth--;
+			}
+		}
+		auto* d = new Landstalker::FileData(it->path().generic_string(), std::filesystem::is_regular_file(*it));
+		last = m_fileList->AppendItem(parent,
+			it->path().filename().c_str(),
+			std::filesystem::is_directory(*it) ? 1 : 0,
+			std::filesystem::is_directory(*it) ? 1 : 0,
+			d);
+		depth = it.depth();
+	}
+}
+
+bool cMain::promptSaveAll()
+{
+	bool modified = false;
+	for (auto d : m_openDocuments)
+	{
+		if (static_cast<wxStyledTextCtrl*>(d.second)->IsModified())
+		{
+			modified = true;
+			break;
+		}
+	}
+	if (modified == true)
+	{
+		auto result = wxMessageBox("Some files have not been saved. Save them now?", "Build ROM", wxYES_NO, this);
+		if (result == wxYES)
+		{
+			saveAll();
+		}
+		else if (result == wxCANCEL)
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+void cMain::showAboutBox()
+{
+	cAboutDlg dlg(this);
+}
+
+cAboutDlg::cAboutDlg(wxWindow* parent, long style)
+	: wxDialog(parent, wxID_ANY, wxEmptyString,
+		wxDefaultPosition, wxDefaultSize,
+		style | wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
+{
+
+	// Get version of Scintilla
+	wxVersionInfo vi = wxStyledTextCtrl::GetLibraryVersionInfo();
+
+	// sets the application title
+	SetTitle(_("About " APP_NAME));
+
+	// about info
+	wxGridSizer* aboutinfo = new wxGridSizer(2, 0, 2);
+	aboutinfo->Add(new wxStaticText(this, wxID_ANY, _("Written by: ")),
+		0, wxALIGN_LEFT);
+	aboutinfo->Add(new wxStaticText(this, wxID_ANY, APP_MAINT),
+		1, wxEXPAND | wxALIGN_LEFT);
+	aboutinfo->Add(new wxStaticText(this, wxID_ANY, _("Version: ")),
+		0, wxALIGN_LEFT);
+	aboutinfo->Add(new wxStaticText(this, wxID_ANY, wxString::Format("%s (%s)", APP_VERSION, vi.GetVersionString())),
+		1, wxEXPAND | wxALIGN_LEFT);
+	aboutinfo->Add(new wxStaticText(this, wxID_ANY, _("Licence type: ")),
+		0, wxALIGN_LEFT);
+	aboutinfo->Add(new wxStaticText(this, wxID_ANY, APP_LICENCE),
+		1, wxEXPAND | wxALIGN_LEFT);
+	aboutinfo->Add(new wxStaticText(this, wxID_ANY, _("Copyright: ")),
+		0, wxALIGN_LEFT);
+	aboutinfo->Add(new wxStaticText(this, wxID_ANY, APP_COPYRIGHT),
+		1, wxEXPAND | wxALIGN_LEFT);
+	aboutinfo->Add(new wxStaticText(this, wxID_ANY, _("Github: ")),
+		0, wxALIGN_LEFT);
+	aboutinfo->Add(new wxHyperlinkCtrl(this, wxID_ANY, APP_WEBSITE, APP_WEBSITE),
+		1, wxEXPAND | wxALIGN_LEFT);
+	aboutinfo->Add(new wxStaticText(this, wxID_ANY, _("Email: ")),
+		0, wxALIGN_LEFT);
+	aboutinfo->Add(new wxHyperlinkCtrl(this, wxID_ANY, APP_MAIL, APP_MAILTO),
+		1, wxEXPAND | wxALIGN_LEFT);
+
+	// about icontitle//info
+	wxBoxSizer* aboutpane = new wxBoxSizer(wxHORIZONTAL);
+	wxBitmap bitmap = wxBitmap(chest_xpm);
+	aboutpane->Add(new wxStaticBitmap(this, wxID_ANY, bitmap),
+		0, wxALIGN_LEFT | wxALIGN_CENTER_VERTICAL | wxLEFT | wxRIGHT, 20);
+	aboutpane->Add(aboutinfo, 1, wxEXPAND);
+	aboutpane->Add(60, 0);
+
+	// about complete
+	wxBoxSizer* totalpane = new wxBoxSizer(wxVERTICAL);
+	totalpane->Add(0, 20);
+	wxStaticText* appname = new wxStaticText(this, wxID_ANY, APP_NAME);
+	appname->SetFont(wxFontInfo(24).Bold());
+	totalpane->Add(appname, 0, wxALIGN_CENTER | wxLEFT | wxRIGHT, 40);
+	totalpane->Add(0, 10);
+	totalpane->Add(aboutpane, 0, wxEXPAND | wxALL, 4);
+	totalpane->Add(new wxStaticText(this, wxID_ANY, APP_DESCR),
+		0, wxALIGN_CENTER | wxALL, 10);
+	wxButton* okButton = new wxButton(this, wxID_OK, _("OK"));
+	okButton->SetDefault();
+	totalpane->Add(okButton, 0, wxALIGN_CENTER | wxLEFT | wxRIGHT | wxBOTTOM, 10);
+
+	SetSizerAndFit(totalpane);
+
+	CenterOnScreen();
+	ShowModal();
+}
+
+cAboutDlg::~cAboutDlg()
+{
 }

@@ -9,6 +9,23 @@
 #include "wx/treectrl.h"
 #include <wx/stc/stc.h>
 
+
+#define APP_NAME "Landstalker Editor"
+#define APP_DESCR "Editor for Landstalker Disassemblies"
+
+#define APP_MAINT "Lordmir"
+#define APP_VENDOR "RCL"
+#define APP_COPYRIGHT "(C) 2021 lordmir [Tom Amendt]"
+#define APP_LICENCE "GPL"
+
+#define APP_VERSION "0.1.alpha"
+#define APP_BUILD __DATE__
+
+#define APP_WEBSITE "http://www.github.com/lordmir"
+#define APP_MAIL "tgamendt@gmail.com"
+#define APP_MAILTO "mailto://" APP_MAIL
+
+
 class cMain : public wxFrame
 {
 public:
@@ -32,9 +49,18 @@ private:
 	void onMenuCloseTab(wxCommandEvent& evt);
 	void onMenuCloseAll(wxCommandEvent& evt);
 	void onMenuCloseAllButThis(wxCommandEvent& evt);
+	void onMenuAbout(wxCommandEvent& evt);
 	void onClose(wxCloseEvent& evt);
 
 	bool closeTab(std::map<wxTreeItemId, wxWindow*>::iterator& it);
+	bool closeAll();
+	void saveAll();
+	void buildRom(bool promptForFilename = false);
+	void saveFile(wxWindow* file, bool promptForFilename = false, bool force = false);
+	void openProject();
+	void loadProject(const std::string& path);
+	bool promptSaveAll();
+	void showAboutBox();
 
 	wxAuiManager m_mgr;
 
@@ -47,5 +73,16 @@ private:
 	std::string m_romPath;
 	std::map<wxTreeItemId, wxWindow*> m_openDocuments;
 };
+
+class cAboutDlg : public wxDialog {
+
+public:
+	//! constructor
+	cAboutDlg(wxWindow* parent,
+		      long style = 0);
+
+	//! destructor
+	~cAboutDlg();
+}; 
 
 #endif // _C_MAIN_H_
