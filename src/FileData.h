@@ -21,4 +21,4 @@ private:
 
 } // namespace Landstalker
 
-#endif _FILE_DATA_H_
+#endif // _FILE_DATA_H_
