@@ -31,16 +31,41 @@ namespace filesystem = experimental::filesystem;
 
 
 wxBEGIN_EVENT_TABLE(cMain, wxFrame)
-	EVT_BUTTON(10001, cMain::onLoadButtonClick)
-	EVT_BUTTON(10002, cMain::onBuildButtonClick)
+	EVT_MENU(wxID_OPEN, cMain::onMenuOpen)
+	EVT_MENU(wxID_SAVE, cMain::onMenuSave)
+	EVT_MENU(wxID_SAVEAS, cMain::onMenuSaveAs)
+	EVT_MENU(10001, cMain::onMenuSaveAll)
+	EVT_MENU(10002, cMain::onMenuBuildRom)
+	EVT_MENU(10003, cMain::onMenuBuildRomAs)
+	EVT_MENU(wxID_CLOSE, cMain::onMenuClose)
+	EVT_MENU(10004, cMain::onMenuCloseTab)
+	EVT_MENU(10005, cMain::onMenuCloseAll)
+	EVT_MENU(10006, cMain::onMenuCloseAllButThis)
 	EVT_TREE_ITEM_ACTIVATED(10003, cMain::onFileActivate)
 	EVT_AUINOTEBOOK_PAGE_CLOSE(10004, cMain::onAuiNotebookPageClose)
-	EVT_STC_STYLENEEDED(wxID_ANY, cMain::OnStcStyleNeeded)
+	EVT_STC_MODIFIED(wxID_ANY, cMain::OnStcModified)
+	EVT_CLOSE(cMain::onClose)
 wxEND_EVENT_TABLE()
 
 cMain::cMain() : wxFrame(nullptr, wxID_ANY, "Landstalker Disassembly Editor",
                          wxDefaultPosition, wxSize(800, 600), wxDEFAULT_FRAME_STYLE)
 {
+	m_menu = new wxMenuBar();
+	wxMenu* fileMenu = new wxMenu();
+	fileMenu->Append(wxID_OPEN, "&Open...\tCtrl+O");
+	fileMenu->Append(wxID_SAVE, "&Save\tCtrl+S");
+	fileMenu->Append(wxID_SAVEAS, "Save &As...\tCtrl+Shift+S");
+	fileMenu->Append(10001, "Save A&ll\tCtrl+Alt+S");
+	fileMenu->Append(10002, "&Build ROM\tCtrl+B");
+	fileMenu->Append(10003, "B&uild ROM As...\tCtrl+Shift+B");
+	fileMenu->Append(wxID_CLOSE, "&Close\tAlt+F4");
+	m_menu->Append(fileMenu, "&File");
+	wxMenu* windowMenu = new wxMenu();
+	windowMenu->Append(10004, "&Close\tCtrl+W");
+	windowMenu->Append(10005, "Close &All\tCtrl+Shift+W");
+	windowMenu->Append(10006, "Close All &But This\tCtrl+Alt+W");
+	m_menu->Append(windowMenu, "&Window");
+	SetMenuBar(m_menu);
 
 	m_mgr.SetManagedWindow(this);
 
@@ -51,9 +76,6 @@ cMain::cMain() : wxFrame(nullptr, wxID_ANY, "Landstalker Disassembly Editor",
 	im->Add(wxArtProvider::GetIcon(wxART_FOLDER, wxART_LIST, { 16,16 }));
 	m_fileList->AssignImageList(im);
 
-	m_loadButton = new wxButton(this, 10001, "Load");
-	m_buildButton = new wxButton(this, 10002, "Build");
-	m_buildButton->Enable(false);
 	m_output = new wxTextCtrl(this, wxID_ANY, "", wxDefaultPosition, wxSize(200, 150),
 		wxNO_BORDER | wxTE_MULTILINE);
 	m_output->SetEditable(false);
@@ -62,8 +84,6 @@ cMain::cMain() : wxFrame(nullptr, wxID_ANY, "Landstalker Disassembly Editor",
 	m_mainEditor = new wxAuiNotebook(this, 10004);
 
 	m_mgr.AddPane(m_fileList, wxAuiPaneInfo().Direction(wxAUI_DOCK_LEFT).Layer(0).Row(0).Position(0).MinSize(100, 100).BestSize(200,100).CaptionVisible(true).MaximizeButton(false).CloseButton(false).MinimizeButton(false).PinButton(false).Caption("Files"));
-	m_mgr.AddPane(m_loadButton, wxRIGHT, "Load");
-	m_mgr.AddPane(m_buildButton, wxRIGHT, "Build");
 	m_mgr.AddPane(m_output, wxAuiPaneInfo().Direction(wxAUI_DOCK_BOTTOM).Layer(0).Row(0).Position(0).MinSize(100, 100).BestSize(100, 150).CaptionVisible(true).MaximizeButton(false).CloseButton(false).MinimizeButton(false).PinButton(false).Caption("Output"));
 	m_mgr.AddPane(m_mainEditor, wxAuiPaneInfo().Direction(wxAUI_DOCK_CENTER).Layer(0).Row(0).Position(0).MinSize(100, 100).CaptionVisible(false).MaximizeButton(false).CloseButton(false).MinimizeButton(false).PinButton(false));
 
@@ -77,57 +97,11 @@ cMain::~cMain()
 
 void cMain::onLoadButtonClick(wxCommandEvent& evt)
 {
-	wxDirDialog dir(this, "Select the disassembly directory", "", wxDD_DEFAULT_STYLE | wxDD_DIR_MUST_EXIST);
-	if (dir.ShowModal() == wxID_OK)
-	{
-		m_disassemblyPath = dir.GetPath();
-		m_buildButton->Enable();
-
-		m_fileList->DeleteAllItems();
-		
-		auto parent = m_fileList->AddRoot(".");
-		auto last = parent;
-		int depth = 0;
-		for (auto it = std::filesystem::recursive_directory_iterator(m_disassemblyPath);
-			 it != std::filesystem::recursive_directory_iterator(); ++it)
-		{
-			if (depth < it.depth())
-			{
-				// last item was a directory
-				parent = last;
-			}
-			else
-			{
-				while (depth > it.depth())
-				{
-					// finished for this directory
-					parent = m_fileList->GetItemParent(parent);
-					depth--;
-				}
-			}
-			auto* d = new Landstalker::FileData(it->path().generic_string(), std::filesystem::is_regular_file(*it));
-			last = m_fileList->AppendItem(parent,
-				                          it->path().filename().c_str(),
-				                          std::filesystem::is_directory(*it) ? 1 : 0,
-				                          std::filesystem::is_directory(*it) ? 1 : 0,
-				                          d);
-			depth = it.depth();
-		}
-	}
 	evt.Skip();
 }
 
 void cMain::onBuildButtonClick(wxCommandEvent& evt)
 {
-	wxFileDialog fileDlg(this, "Save built ROM As", m_disassemblyPath, "landstalker.bin", "Sega Genesis ROM (*.bin)|*.bin", wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
-	if (fileDlg.ShowModal() == wxID_OK)
-	{
-		m_buildButton->Enable(false);
-		m_loadButton->Enable(false);
-		Landstalker::Assembler::Assemble(m_disassemblyPath, "landstalker.asm", fileDlg.GetPath().ToStdString(), "/p /o ae-,e+,w+,c+,op+,os+,ow+,oz+,l_ /e EXPANDED=0", m_output);
-		m_loadButton->Enable(true);
-		m_buildButton->Enable(true);
-	}
 	evt.Skip();
 }
 
@@ -139,14 +113,8 @@ void cMain::onFileActivate(wxTreeEvent& evt)
 		const auto& d = *static_cast<Landstalker::FileData*>(m_fileList->GetItemData(evt.GetItem()));
 		if (d.IsFile() == true)
 		{
-			std::ifstream file(d.Path());
-			std::string str((std::istreambuf_iterator<char>(file)),
-				std::istreambuf_iterator<char>());
-			//m_codeEditor = 
 			wxStyledTextCtrl* codeEditor = new wxStyledTextCtrl(this, wxID_ANY, wxDefaultPosition, wxSize(200, 150), wxNO_BORDER | wxTE_MULTILINE);
-//			codeEditor->SetEditable(false);
 			codeEditor->SetFont(wxFont(10, wxFONTFAMILY_TELETYPE, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL));
-			codeEditor->AddText(str);
 			codeEditor->SetLexer(wxSTC_LEX_A68K);
 			for (int i = 0; i < wxSTC_STYLE_LASTPREDEFINED; i++) {
 				wxFont font(wxFontInfo(10).Family(wxFONTFAMILY_TELETYPE));
@@ -228,6 +196,8 @@ void cMain::onFileActivate(wxTreeEvent& evt)
 			                           "type substr module modend local section group pushs pops word bss size "
 			                           "over opt pusho popo list nolist inform fail xref xdef public global "); // Directives
 			codeEditor->SetKeyWords(3, "ScriptID ScriptJump Align PadTo ROM_End UnlockSRAM LockSRAM ExpandBsr "); // External Instructions
+			codeEditor->LoadFile(d.Path());
+			codeEditor->SetSavePoint();
 			
 			m_mainEditor->InsertPage(m_mainEditor->GetSelection() + 1, codeEditor, m_fileList->GetItemText(evt.GetItem()), true);
 			m_openDocuments.insert({ evt.GetItem(), codeEditor });
@@ -251,22 +221,277 @@ void cMain::onFileActivate(wxTreeEvent& evt)
 void cMain::onAuiNotebookPageClose(wxAuiNotebookEvent& evt)
 {
 	auto* window = m_mainEditor->GetPage(evt.GetSelection());
-	auto it = m_openDocuments.cbegin();
-	while (it != m_openDocuments.cend())
+	auto it = m_openDocuments.begin();
+	while (it != m_openDocuments.end())
 	{
 		if (it->second == window)
 		{
-			it = m_openDocuments.erase(it);
+			if (closeTab(it) == false)
+			{
+				break;
+			}
 		}
 		else
 		{
 			++it;
 		}
 	}
+	// Always veto, as we close tabs programatically
+	evt.Veto();
 	evt.Skip();
 }
 
-void cMain::OnStcStyleNeeded(wxStyledTextEvent& evt)
+void cMain::OnStcModified(wxStyledTextEvent& evt)
 {
-	wxMessageBox("Passion");
+	auto* tab = static_cast<wxStyledTextCtrl*>(evt.GetEventObject());
+	auto id = m_mainEditor->GetPageIndex(tab);
+	if (id != wxNOT_FOUND)
+	{
+		wxTreeItemId treeItem;
+		for (auto d : m_openDocuments)
+		{
+			if (d.second == tab)
+				treeItem = d.first;
+		}
+		std::string path = static_cast<Landstalker::FileData*>(m_fileList->GetItemData(treeItem))->Path();
+		std::string fname = m_fileList->GetItemText(treeItem).ToStdString();
+		if (tab->IsModified() == true)
+		{
+			m_mainEditor->SetPageText(id, fname + "*");
+		}
+		else
+		{
+			m_mainEditor->SetPageText(id, fname);
+		}
+	}
+	evt.Skip();
+}
+
+void cMain::onMenuOpen(wxCommandEvent& evt)
+{
+	auto it = m_openDocuments.begin();
+	while (it != m_openDocuments.end())
+	{
+		if (closeTab(it) == false)
+		{
+			return;
+		}
+	}
+	wxDirDialog dir(this, "Select the disassembly directory", "", wxDD_DEFAULT_STYLE | wxDD_DIR_MUST_EXIST);
+	if (dir.ShowModal() == wxID_OK)
+	{
+		m_mainEditor->DeleteAllPages();
+		m_openDocuments.clear();
+		m_disassemblyPath = dir.GetPath();
+		m_romPath = dir.GetPath() + "/landstalker.bin";
+
+		m_fileList->DeleteAllItems();
+
+		auto parent = m_fileList->AddRoot(".");
+		auto last = parent;
+		int depth = 0;
+		for (auto it = std::filesystem::recursive_directory_iterator(m_disassemblyPath);
+			it != std::filesystem::recursive_directory_iterator(); ++it)
+		{
+			if (depth < it.depth())
+			{
+				// last item was a directory
+				parent = last;
+			}
+			else
+			{
+				while (depth > it.depth())
+				{
+					// finished for this directory
+					parent = m_fileList->GetItemParent(parent);
+					depth--;
+				}
+			}
+			auto* d = new Landstalker::FileData(it->path().generic_string(), std::filesystem::is_regular_file(*it));
+			last = m_fileList->AppendItem(parent,
+				it->path().filename().c_str(),
+				std::filesystem::is_directory(*it) ? 1 : 0,
+				std::filesystem::is_directory(*it) ? 1 : 0,
+				d);
+			depth = it.depth();
+		}
+	}
+	evt.Skip();
+}
+
+void cMain::onMenuSave(wxCommandEvent& evt)
+{
+	wxStyledTextCtrl* tab = static_cast<wxStyledTextCtrl*>(m_mainEditor->GetPage(m_mainEditor->GetSelection()));
+	wxTreeItemId treeItem;
+	for (auto d : m_openDocuments)
+	{
+		if (d.second == tab)
+			treeItem = d.first;
+	}
+	std::string path = static_cast<Landstalker::FileData*>(m_fileList->GetItemData(treeItem))->Path();
+	std::string fname = m_fileList->GetItemText(treeItem).ToStdString();
+	tab->SaveFile(path);
+	m_mainEditor->SetPageText(m_mainEditor->GetSelection(), fname);
+	tab->SetSavePoint();
+	evt.Skip();
+}
+
+void cMain::onMenuSaveAs(wxCommandEvent& evt)
+{
+	wxStyledTextCtrl* tab = static_cast<wxStyledTextCtrl*>(m_mainEditor->GetPage(m_mainEditor->GetSelection()));
+	wxTreeItemId treeItem;
+	for (auto d : m_openDocuments)
+	{
+		if (d.second == tab)
+			treeItem = d.first;
+	}
+	std::string path = static_cast<Landstalker::FileData*>(m_fileList->GetItemData(treeItem))->Path();
+	std::string fname = m_fileList->GetItemText(treeItem).ToStdString();
+	wxFileDialog fileDlg(this, "Save file as...", path, fname, "All Files (*.*)|*.*", wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+	if (fileDlg.ShowModal() == wxID_OK)
+	{
+		tab->SaveFile(path);
+		m_mainEditor->SetPageText(m_mainEditor->GetSelection(), fname);
+		tab->SetSavePoint();
+	}
+	evt.Skip();
+}
+
+void cMain::onMenuSaveAll(wxCommandEvent& evt)
+{
+	for (auto d : m_openDocuments)
+	{
+		auto* tab = static_cast<wxStyledTextCtrl*>(d.second);
+		if (tab->IsModified())
+		{
+			std::string path = static_cast<Landstalker::FileData*>(m_fileList->GetItemData(d.first))->Path();
+			std::string fname = m_fileList->GetItemText(d.first).ToStdString();
+			auto id = m_mainEditor->GetPageIndex(tab);
+			tab->SaveFile(path);
+			m_mainEditor->SetPageText(id, fname);
+		}
+	}
+	evt.Skip();
+}
+
+void cMain::onMenuBuildRom(wxCommandEvent& evt)
+{
+	Landstalker::Assembler::Assemble(m_disassemblyPath, "landstalker.asm", m_romPath, "/p /o ae-,e+,w+,c+,op+,os+,ow+,oz+,l_ /e EXPANDED=0", m_output);
+	evt.Skip();
+}
+
+void cMain::onMenuBuildRomAs(wxCommandEvent& evt)
+{
+	wxFileDialog fileDlg(this, "Save built ROM As", m_disassemblyPath, "landstalker.bin", "Sega Genesis ROM (*.bin)|*.bin", wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+	if (fileDlg.ShowModal() == wxID_OK)
+	{
+		m_romPath = fileDlg.GetPath().ToStdString();
+		onMenuBuildRom(evt);
+	}
+	evt.Skip();
+}
+
+void cMain::onMenuClose(wxCommandEvent& evt)
+{
+	Close();
+	evt.Skip();
+}
+
+void cMain::onMenuCloseTab(wxCommandEvent& evt)
+{
+	auto it = m_openDocuments.begin();
+	auto* currentPage = m_mainEditor->GetPage(m_mainEditor->GetSelection());
+	while (it != m_openDocuments.end())
+	{
+		if (it->second == currentPage)
+		{
+			if (closeTab(it) == false)
+			{
+				break;
+			}
+		}
+		else
+		{
+			it++;
+		}
+	}
+	evt.Skip();
+}
+
+void cMain::onMenuCloseAll(wxCommandEvent& evt)
+{
+	auto it = m_openDocuments.begin();
+	auto* currentPage = m_mainEditor->GetPage(m_mainEditor->GetSelection());
+	while (it != m_openDocuments.end())
+	{
+		if (closeTab(it) == false)
+		{
+			break;
+		}
+	}
+}
+
+void cMain::onMenuCloseAllButThis(wxCommandEvent& evt)
+{
+	auto it = m_openDocuments.begin();
+	auto* currentPage = m_mainEditor->GetPage(m_mainEditor->GetSelection());
+	while (it != m_openDocuments.end())
+	{
+		if (it->second != currentPage)
+		{
+			if (closeTab(it) == false)
+			{
+				break;
+			}
+		}
+		else
+		{
+			it++;
+		}
+	}
+	evt.Skip();
+}
+
+void cMain::onClose(wxCloseEvent& evt)
+{
+	auto it = m_openDocuments.begin();
+	while (it != m_openDocuments.end())
+	{
+		if (closeTab(it) == false)
+		{
+			if (evt.CanVeto() == true)
+			{
+				evt.Veto();
+				return;
+			}
+			break;
+		}
+	}
+	evt.Skip();
+}
+
+bool cMain::closeTab(std::map<wxTreeItemId, wxWindow*>::iterator& it)
+{
+	bool ok = true;
+	auto* tab = static_cast<wxStyledTextCtrl*>(it->second);
+	if (tab->IsModified())
+	{
+		auto path = static_cast<Landstalker::FileData*>(m_fileList->GetItemData(it->first))->Path();
+		std::string msg("Do you want to save changes to " + m_fileList->GetItemText(it->first) + "?");
+		auto result = wxMessageBox(msg, "Save Changes", wxYES_NO | wxCANCEL, this);
+		if (result == wxYES)
+		{
+			tab->SaveFile(path);
+		}
+		else if (result == wxCANCEL)
+		{
+			ok = false;
+		}
+	}
+	if (ok == true)
+	{
+		m_mainEditor->DeletePage(m_mainEditor->GetPageIndex(tab));
+		it = m_openDocuments.erase(it);
+	}
+	return ok;
 }
