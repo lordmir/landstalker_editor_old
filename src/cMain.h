@@ -53,6 +53,9 @@ private:
 	void onClose(wxCloseEvent& evt);
 	void onObjectEditorModify(wxCommandEvent& evt);
 
+	void populateMenus();
+	void initImageList();
+	void initAuiMgr();
 	bool closeTab(std::map<wxTreeItemId, ObjectEditor*>::iterator& it);
 	bool closeAll();
 	void saveAll();

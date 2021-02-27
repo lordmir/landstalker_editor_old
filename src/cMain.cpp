@@ -62,52 +62,9 @@ cMain::cMain() : wxFrame(nullptr, wxID_ANY, "Landstalker Disassembly Editor",
                          wxDefaultPosition, wxSize(800, 600), wxDEFAULT_FRAME_STYLE)
 {
 	SetIcon(chest_xpm);
-
-	m_menu = new wxMenuBar();
-	wxMenu* fileMenu = new wxMenu();
-	fileMenu->Append(wxID_OPEN, "&Open Disassembly...\tCtrl+O");
-	fileMenu->Append(wxID_SAVE, "&Save\tCtrl+S");
-	fileMenu->Append(wxID_SAVEAS, "Save &As...\tCtrl+Shift+S");
-	fileMenu->Append(10001, "Save A&ll\tCtrl+Alt+S");
-	fileMenu->Append(10002, "&Build ROM\tCtrl+B");
-	fileMenu->Append(10003, "B&uild ROM As...\tCtrl+Shift+B");
-	fileMenu->Append(wxID_CLOSE, "&Close\tAlt+F4");
-	m_menu->Append(fileMenu, "&File");
-	wxMenu* windowMenu = new wxMenu();
-	windowMenu->Append(10004, "&Close\tCtrl+W");
-	windowMenu->Append(10005, "Close &All\tCtrl+Shift+W");
-	windowMenu->Append(10006, "Close All &But This\tCtrl+Alt+W");
-	m_menu->Append(windowMenu, "&Window");
-	wxMenu* helpMenu = new wxMenu();
-	helpMenu->Append(wxID_ABOUT, "&About...");
-	m_menu->Append(helpMenu, "&Help");
-	SetMenuBar(m_menu);
-
-	m_mgr.SetManagedWindow(this);
-
-	m_fileList = new wxTreeCtrl(this, 10003);
-	m_fileList->SetWindowStyle(wxTR_HAS_BUTTONS | wxTR_NO_LINES | wxTR_HIDE_ROOT | wxTR_SINGLE);
-	wxImageList* im = new wxImageList(16, 16, true);
-	im->Add(wxBitmap(unk_xpm));
-	im->Add(wxBitmap(dir_xpm));
-	im->Add(wxBitmap(asm_xpm));
-	im->Add(wxBitmap(bin_xpm));
-	m_fileList->AssignImageList(im);
-
-	m_output = new wxTextCtrl(this, wxID_ANY, "", wxDefaultPosition, wxSize(200, 150),
-		wxNO_BORDER | wxTE_MULTILINE);
-	m_output->SetEditable(false);
-	m_output->SetFont(wxFont(10, wxFONTFAMILY_TELETYPE, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL));
-
-	m_mainEditor = new wxAuiNotebook(this, 10004);
-	m_mainEditor->AssignImageList(im);
-
-	m_mgr.AddPane(m_fileList, wxAuiPaneInfo().Direction(wxAUI_DOCK_LEFT).Layer(0).Row(0).Position(0).MinSize(100, 100).BestSize(200,100).CaptionVisible(true).MaximizeButton(false).CloseButton(false).MinimizeButton(false).PinButton(false).Caption("Files"));
-	m_mgr.AddPane(m_output, wxAuiPaneInfo().Direction(wxAUI_DOCK_BOTTOM).Layer(0).Row(0).Position(0).MinSize(100, 100).BestSize(100, 150).CaptionVisible(true).MaximizeButton(false).CloseButton(false).MinimizeButton(false).PinButton(false).Caption("Output"));
-	m_mgr.AddPane(m_mainEditor, wxAuiPaneInfo().Direction(wxAUI_DOCK_CENTER).Layer(0).Row(0).Position(0).MinSize(100, 100).CaptionVisible(false).MaximizeButton(false).CloseButton(false).MinimizeButton(false).PinButton(false));
-
-	m_mgr.Update();
-	updateAllMenuStates();
+	populateMenus();
+	initAuiMgr();
+	initImageList();
 }
 
 cMain::~cMain()
@@ -134,17 +91,14 @@ void cMain::onFileActivate(wxTreeEvent& evt)
 		if (d.IsFile() == true)
 		{
 			ObjectEditor* editor = nullptr;
-			std::filesystem::path path(d.Path());
-			std::string extension = path.extension().generic_string();
-			std::transform(extension.begin(), extension.end(), extension.begin(), [](char c) {return toupper(c);});
 			switch(d.Type())
 			{
 			case ObjectType::ASSEMBLY_SOURCE:
-				editor = new CodeEditor(this, m_fileList->GetItemText(evt.GetItem()).ToStdString(), evt.GetItem(), path);
+				editor = new CodeEditor(this, m_fileList->GetItemText(evt.GetItem()).ToStdString(), evt.GetItem(), d.Path());
 				break;
 			case ObjectType::BINARY:
 			case ObjectType::UNKNOWN:
-				editor = new HexEditor(this, m_fileList->GetItemText(evt.GetItem()).ToStdString(), evt.GetItem(), path);
+				editor = new HexEditor(this, m_fileList->GetItemText(evt.GetItem()).ToStdString(), evt.GetItem(), d.Path());
 				break;
 			case ObjectType::DIRECTORY:
 			default:
@@ -304,6 +258,62 @@ void cMain::onObjectEditorModify(wxCommandEvent& evt)
 		m_mainEditor->SetPageText(id, tab->GetDisplayTitle());
 	}
 	evt.Skip();
+}
+
+void cMain::populateMenus()
+{
+	m_menu = new wxMenuBar();
+	wxMenu* fileMenu = new wxMenu();
+	fileMenu->Append(wxID_OPEN, "&Open Disassembly...\tCtrl+O");
+	fileMenu->Append(wxID_SAVE, "&Save\tCtrl+S");
+	fileMenu->Append(wxID_SAVEAS, "Save &As...\tCtrl+Shift+S");
+	fileMenu->Append(10001, "Save A&ll\tCtrl+Alt+S");
+	fileMenu->Append(10002, "&Build ROM\tCtrl+B");
+	fileMenu->Append(10003, "B&uild ROM As...\tCtrl+Shift+B");
+	fileMenu->Append(wxID_CLOSE, "&Close\tAlt+F4");
+	m_menu->Append(fileMenu, "&File");
+	wxMenu* windowMenu = new wxMenu();
+	windowMenu->Append(10004, "&Close\tCtrl+W");
+	windowMenu->Append(10005, "Close &All\tCtrl+Shift+W");
+	windowMenu->Append(10006, "Close All &But This\tCtrl+Alt+W");
+	m_menu->Append(windowMenu, "&Window");
+	wxMenu* helpMenu = new wxMenu();
+	helpMenu->Append(wxID_ABOUT, "&About...");
+	m_menu->Append(helpMenu, "&Help");
+	SetMenuBar(m_menu);
+	updateAllMenuStates();
+}
+
+void cMain::initImageList()
+{
+	wxImageList* im = new wxImageList(16, 16, true);
+	im->Add(wxBitmap(unk_xpm));
+	im->Add(wxBitmap(dir_xpm));
+	im->Add(wxBitmap(asm_xpm));
+	im->Add(wxBitmap(bin_xpm));
+	m_fileList->SetImageList(im);
+	m_mainEditor->AssignImageList(im);
+}
+
+void cMain::initAuiMgr()
+{
+	m_mgr.SetManagedWindow(this);
+
+	m_fileList = new wxTreeCtrl(this, 10003);
+	m_fileList->SetWindowStyle(wxTR_HAS_BUTTONS | wxTR_NO_LINES | wxTR_HIDE_ROOT | wxTR_SINGLE);
+
+	m_output = new wxTextCtrl(this, wxID_ANY, "", wxDefaultPosition, wxSize(200, 150),
+		wxNO_BORDER | wxTE_MULTILINE);
+	m_output->SetEditable(false);
+	m_output->SetFont(wxFont(10, wxFONTFAMILY_TELETYPE, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL));
+
+	m_mainEditor = new wxAuiNotebook(this, 10004);
+
+	m_mgr.AddPane(m_fileList, wxAuiPaneInfo().Direction(wxAUI_DOCK_LEFT).Layer(0).Row(0).Position(0).MinSize(100, 100).BestSize(200, 100).CaptionVisible(true).MaximizeButton(false).CloseButton(false).MinimizeButton(false).PinButton(false).Caption("Files"));
+	m_mgr.AddPane(m_output, wxAuiPaneInfo().Direction(wxAUI_DOCK_BOTTOM).Layer(0).Row(0).Position(0).MinSize(100, 100).BestSize(100, 150).CaptionVisible(true).MaximizeButton(false).CloseButton(false).MinimizeButton(false).PinButton(false).Caption("Output"));
+	m_mgr.AddPane(m_mainEditor, wxAuiPaneInfo().Direction(wxAUI_DOCK_CENTER).Layer(0).Row(0).Position(0).MinSize(100, 100).CaptionVisible(false).MaximizeButton(false).CloseButton(false).MinimizeButton(false).PinButton(false));
+
+	m_mgr.Update();
 }
 
 bool cMain::closeTab(std::map<wxTreeItemId, ObjectEditor*>::iterator& it)
