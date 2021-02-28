@@ -32,12 +32,14 @@ namespace filesystem = experimental::filesystem;
 #include "FileData.h"
 #include "CodeEditor.h"
 #include "HexEditor.h"
+#include "TilesetEditor.h"
 
 #include "img/chest.xpm"
 #include "img/unk.xpm"
 #include "img/dir.xpm"
 #include "img/asm.xpm"
 #include "img/bin.xpm"
+#include "img/ts.xpm"
 
 
 wxBEGIN_EVENT_TABLE(cMain, wxFrame)
@@ -99,6 +101,16 @@ void cMain::onFileActivate(wxTreeEvent& evt)
 			case ObjectType::BINARY:
 			case ObjectType::UNKNOWN:
 				editor = new HexEditor(this, m_fileList->GetItemText(evt.GetItem()).ToStdString(), evt.GetItem(), d.Path());
+				break;
+			case ObjectType::TILESET_UNCOMPRESSED:
+			case ObjectType::TILESET_LZ77:
+				editor = new TilesetEditor(this, m_fileList->GetItemText(evt.GetItem()).ToStdString(), evt.GetItem(), d.Type(), 4, d.Path());
+				break;
+			case ObjectType::TILESET_1BPP:
+				editor = new TilesetEditor(this, m_fileList->GetItemText(evt.GetItem()).ToStdString(), evt.GetItem(), d.Type(), 1, d.Path());
+				break;
+			case ObjectType::TILESET_2BPP:
+				editor = new TilesetEditor(this, m_fileList->GetItemText(evt.GetItem()).ToStdString(), evt.GetItem(), d.Type(), 2, d.Path());
 				break;
 			case ObjectType::DIRECTORY:
 			default:
@@ -291,6 +303,10 @@ void cMain::initImageList()
 	im->Add(wxBitmap(dir_xpm));
 	im->Add(wxBitmap(asm_xpm));
 	im->Add(wxBitmap(bin_xpm));
+	im->Add(wxBitmap(ts_xpm));
+	im->Add(wxBitmap(ts_xpm));
+	im->Add(wxBitmap(ts_xpm));
+	im->Add(wxBitmap(ts_xpm));
 	m_fileList->SetImageList(im);
 	m_mainEditor->AssignImageList(im);
 }

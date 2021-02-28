@@ -12,6 +12,22 @@ Landstalker::FileData::FileData(const std::string& path, bool isFile)
 		{
 			m_type = ObjectType::ASSEMBLY_SOURCE;
 		}
+		else if (extension == ".BIN")
+		{
+			m_type = ObjectType::TILESET_UNCOMPRESSED;
+		}
+		else if (extension == ".LZ77")
+		{
+			m_type = ObjectType::TILESET_LZ77;
+		}
+		else if (extension == ".1BPP")
+		{
+			m_type = ObjectType::TILESET_1BPP;
+		}
+		else if (extension == ".2BPP")
+		{
+			m_type = ObjectType::TILESET_2BPP;
+		}
 		else
 		{
 			m_type = ObjectType::BINARY;
