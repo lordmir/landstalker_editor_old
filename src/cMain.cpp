@@ -9,30 +9,16 @@
 #include <sstream>
 #include <fstream>
 #include <algorithm>
-#if defined _WIN32 || defined _WIN64
-#include <filesystem>
-#else
-#if GCC_VERSION < 80000
-#include <experimental/filesystem>
-namespace std
-{
-namespace filesystem = experimental::filesystem;
-}
-#else
-#include <filesystem>
-#endif
-#endif
+#include "filesystem.h"
 
 #include <wx/artprov.h>
 #include <wx/image.h>
 #include <wx/imaglist.h>
 #include <wx/hyperlink.h>
 
+#include "ProjectFile.h"
 #include "Assembler.h"
 #include "FileData.h"
-#include "CodeEditor.h"
-#include "HexEditor.h"
-#include "TilesetEditor.h"
 
 #include "img/chest.xpm"
 #include "img/unk.xpm"
@@ -46,7 +32,10 @@ wxBEGIN_EVENT_TABLE(cMain, wxFrame)
 	EVT_MENU(wxID_OPEN, cMain::onMenuOpen)
 	EVT_MENU(wxID_SAVE, cMain::onMenuSave)
 	EVT_MENU(wxID_SAVEAS, cMain::onMenuSaveAs)
+	EVT_MENU(wxID_NEW, cMain::onMenuNew)
 	EVT_MENU(10001, cMain::onMenuSaveAll)
+	EVT_MENU(10007, cMain::onMenuSaveProject)
+	EVT_MENU(10008, cMain::onMenuSaveProjectAs)
 	EVT_MENU(10002, cMain::onMenuBuildRom)
 	EVT_MENU(10003, cMain::onMenuBuildRomAs)
 	EVT_MENU(wxID_CLOSE, cMain::onMenuClose)
@@ -74,61 +63,38 @@ cMain::~cMain()
 	m_mgr.UnInit();
 }
 
-void cMain::onLoadButtonClick(wxCommandEvent& evt)
-{
-	evt.Skip();
-}
-
-void cMain::onBuildButtonClick(wxCommandEvent& evt)
-{
-	evt.Skip();
-}
-
 void cMain::onFileActivate(wxTreeEvent& evt)
 {
-	auto doc = m_openDocuments.find(evt.GetItem());
+	auto doc = std::find_if(m_openDocuments.cbegin(), m_openDocuments.cend(), [&evt](const auto& p) {
+		return (p.second == evt.GetItem());
+	});
 	if (doc == m_openDocuments.end())
 	{
 		const auto& d = *static_cast<Landstalker::FileData*>(m_fileList->GetItemData(evt.GetItem()));
-		if (d.IsFile() == true)
+		auto* editor = d.MakeEditor();
+		if (editor != nullptr)
 		{
-			ObjectEditor* editor = nullptr;
-			switch(d.Type())
-			{
-			case ObjectType::ASSEMBLY_SOURCE:
-				editor = new CodeEditor(this, m_fileList->GetItemText(evt.GetItem()).ToStdString(), evt.GetItem(), d.Path());
-				break;
-			case ObjectType::BINARY:
-			case ObjectType::UNKNOWN:
-				editor = new HexEditor(this, m_fileList->GetItemText(evt.GetItem()).ToStdString(), evt.GetItem(), d.Path());
-				break;
-			case ObjectType::TILESET_UNCOMPRESSED:
-			case ObjectType::TILESET_LZ77:
-				editor = new TilesetEditor(this, m_fileList->GetItemText(evt.GetItem()).ToStdString(), evt.GetItem(), d.Type(), 4, d.Path());
-				break;
-			case ObjectType::TILESET_1BPP:
-				editor = new TilesetEditor(this, m_fileList->GetItemText(evt.GetItem()).ToStdString(), evt.GetItem(), d.Type(), 1, d.Path());
-				break;
-			case ObjectType::TILESET_2BPP:
-				editor = new TilesetEditor(this, m_fileList->GetItemText(evt.GetItem()).ToStdString(), evt.GetItem(), d.Type(), 2, d.Path());
-				break;
-			case ObjectType::DIRECTORY:
-			default:
-				break;
-			}
-			if (editor != nullptr)
-			{
-				m_mainEditor->InsertPage(m_mainEditor->GetSelection() + 1, editor->ToWindow(), m_fileList->GetItemText(evt.GetItem()), true, m_fileList->GetItemImage(evt.GetItem()));
-				m_openDocuments.insert({ evt.GetItem(), editor });
-			}
+			m_mainEditor->InsertPage(m_mainEditor->GetSelection() + 1, editor->ToWindow(), m_fileList->GetItemText(evt.GetItem()), true, m_fileList->GetItemImage(evt.GetItem()));
+			m_openDocuments.insert({ editor, evt.GetItem() });
 		}
 	}
 	else
 	{
-		auto pageId = m_mainEditor->GetPageIndex(doc->second->ToWindow());
+		auto pageId = m_mainEditor->GetPageIndex(doc->first->ToWindow());
 		if (pageId == wxNOT_FOUND)
 		{
-			m_openDocuments.erase(evt.GetItem());
+			auto it = m_openDocuments.begin();
+			while (it != m_openDocuments.end())
+			{
+				if (it->second == evt.GetItem())
+				{
+					it = m_openDocuments.erase(it);
+				}
+				else
+				{
+					it++;
+				}
+			}
 		}
 		else
 		{
@@ -142,7 +108,7 @@ void cMain::onFileActivate(wxTreeEvent& evt)
 void cMain::onAuiNotebookPageClose(wxAuiNotebookEvent& evt)
 {
 	auto* editor = dynamic_cast<ObjectEditor*>(m_mainEditor->GetPage(evt.GetSelection()));
-	auto it = m_openDocuments.find(editor->GetTreeItemId());
+	auto it = m_openDocuments.find(editor);
 	if (it != m_openDocuments.end())
 	{
 		closeTab(it);
@@ -155,6 +121,21 @@ void cMain::onAuiNotebookPageClose(wxAuiNotebookEvent& evt)
 void cMain::onMenuOpen(wxCommandEvent& evt)
 {
 	openProject();
+	evt.Skip();
+}
+
+void cMain::onMenuSaveProject(wxCommandEvent& evt)
+{
+	evt.Skip();
+}
+
+void cMain::onMenuSaveProjectAs(wxCommandEvent& evt)
+{
+	evt.Skip();
+}
+
+void cMain::onMenuNew(wxCommandEvent& evt)
+{
 	evt.Skip();
 }
 
@@ -203,7 +184,7 @@ void cMain::onMenuClose(wxCommandEvent& evt)
 void cMain::onMenuCloseTab(wxCommandEvent& evt)
 {
 	auto* editor = dynamic_cast<ObjectEditor*>(m_mainEditor->GetPage(m_mainEditor->GetSelection()));
-	auto it = m_openDocuments.find(editor->GetTreeItemId());
+	auto it = m_openDocuments.find(editor);
 	if (it != m_openDocuments.end())
 	{
 		closeTab(it);
@@ -220,10 +201,9 @@ void cMain::onMenuCloseAllButThis(wxCommandEvent& evt)
 {
 	auto it = m_openDocuments.begin();
 	auto* editor = dynamic_cast<ObjectEditor*>(m_mainEditor->GetPage(m_mainEditor->GetSelection()));
-	auto id = editor->GetTreeItemId();
 	while (it != m_openDocuments.end())
 	{
-		if (it->first != id)
+		if (it->first != editor)
 		{
 			if (closeTab(it) == false)
 			{
@@ -276,10 +256,13 @@ void cMain::populateMenus()
 {
 	m_menu = new wxMenuBar();
 	wxMenu* fileMenu = new wxMenu();
-	fileMenu->Append(wxID_OPEN, "&Open Disassembly...\tCtrl+O");
-	fileMenu->Append(wxID_SAVE, "&Save\tCtrl+S");
-	fileMenu->Append(wxID_SAVEAS, "Save &As...\tCtrl+Shift+S");
-	fileMenu->Append(10001, "Save A&ll\tCtrl+Alt+S");
+	fileMenu->Append(wxID_OPEN, "&Open Project...\tCtrl+O");
+	fileMenu->Append(10007, "Save &Project\tCtrl+Shift+S");
+	fileMenu->Append(10008, "Save P&roject As");
+	fileMenu->Append(wxID_NEW, "&New File\tCtrl+N");
+	fileMenu->Append(wxID_SAVE, "&Save File\tCtrl+S");
+	fileMenu->Append(wxID_SAVEAS, "Save File &As...\tCtrl+Alt+Shift+S");
+	fileMenu->Append(10001, "Save A&ll Files\tCtrl+Alt+S");
 	fileMenu->Append(10002, "&Build ROM\tCtrl+B");
 	fileMenu->Append(10003, "B&uild ROM As...\tCtrl+Shift+B");
 	fileMenu->Append(wxID_CLOSE, "&Close\tAlt+F4");
@@ -332,11 +315,11 @@ void cMain::initAuiMgr()
 	m_mgr.Update();
 }
 
-bool cMain::closeTab(std::map<wxTreeItemId, ObjectEditor*>::iterator& it)
+bool cMain::closeTab(std::map<ObjectEditor*, wxTreeItemId>::iterator& it)
 {
-	if (it->second->Close() == true)
+	if (it->first->Close() == true)
 	{
-		m_mainEditor->DeletePage(m_mainEditor->GetPageIndex(it->second->ToWindow()));
+		m_mainEditor->DeletePage(m_mainEditor->GetPageIndex(it->first->ToWindow()));
 		it = m_openDocuments.erase(it);
 		updateAllMenuStates();
 		return true;
@@ -362,7 +345,7 @@ void cMain::saveAll()
 {
 	for (auto d : m_openDocuments)
 	{
-		d.second->Save(false);
+		d.first->Save(false);
 	}
 }
 
@@ -393,60 +376,90 @@ void cMain::openProject()
 	{
 		return;
 	}
-	wxDirDialog dir(this, "Select the disassembly directory", "", wxDD_DEFAULT_STYLE | wxDD_DIR_MUST_EXIST);
+	wxFileDialog dir(this, "Open Disassembly Project", "", "landstalker.xml", "Disassembly Project Files (*.xml)|*.xml", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
 	if (dir.ShowModal() == wxID_OK)
 	{
 		loadProject(dir.GetPath().ToStdString());
 	}
 }
 
-void cMain::loadProject(const std::string& path)
+void cMain::loadProject(const std::filesystem::path& path)
 {
 	m_mainEditor->DeleteAllPages();
 	m_openDocuments.clear();
-	m_disassemblyPath = path;
-	m_romPath = path + "/landstalker.bin";
+	m_disassemblyPath = path.parent_path().generic_string();
+	m_romPath = m_disassemblyPath + "/landstalker.bin";
 
 	m_fileList->DeleteAllItems();
+	if (m_projectFile != nullptr)
+	{
+		delete m_projectFile;
+	}
+	m_projectFile = new ProjectFile(path);
 
 	auto parent = m_fileList->AddRoot(".");
-	auto last = parent;
-	int depth = 0;
-	for (auto it = std::filesystem::recursive_directory_iterator(m_disassemblyPath);
-		it != std::filesystem::recursive_directory_iterator(); ++it)
+
+	auto* node = m_projectFile->Root()->GetChildren();
+
+	auto scanNodes = [&](wxXmlNode* node, wxTreeItemId parent, auto& scanNodesR) -> void
 	{
-		if (depth < it.depth())
+		auto last = parent;
+		while (node != nullptr)
 		{
-			// last item was a directory
-			parent = last;
-		}
-		else
-		{
-			while (depth > it.depth())
+			auto* d = new Landstalker::FileData(this, node, m_disassemblyPath);
+			last = m_fileList->AppendItem(parent,
+				node->GetAttribute("name"),
+				static_cast<int>(d->Type()),
+				static_cast<int>(d->Type()),
+				d);
+			d->SetTreeId(&last);
+			if (d->Type() == ObjectType::DIRECTORY)
 			{
-				// finished for this directory
-				parent = m_fileList->GetItemParent(parent);
-				depth--;
+				scanNodesR(node->GetChildren(), last, scanNodesR);
 			}
+			node = node->GetNext();
 		}
-		auto* d = new Landstalker::FileData(it->path().generic_string(), std::filesystem::is_regular_file(*it));
-		last = m_fileList->AppendItem(parent,
-			it->path().filename().c_str(),
-			static_cast<int>(d->Type()),
-			static_cast<int>(d->Type()),
-			d);
-		depth = it.depth();
-	}
+	};
+
+	scanNodes(node, parent, scanNodes);
 	m_opened = true;
 	updateAllMenuStates();
 }
+
+
+	//int depth = 0;
+	//for (auto it = std::filesystem::recursive_directory_iterator(m_disassemblyPath);
+	//	it != std::filesystem::recursive_directory_iterator(); ++it)
+	//{
+	//	if (depth < it.depth())
+	//	{
+	//		// last item was a directory
+	//		parent = last;
+	//	}
+	//	else
+	//	{
+	//		while (depth > it.depth())
+	//		{
+	//			// finished for this directory
+	//			parent = m_fileList->GetItemParent(parent);
+	//			depth--;
+	//		}
+	//	}
+	//	auto* d = new Landstalker::FileData(it->path().generic_string(), std::filesystem::is_regular_file(*it));
+	//	last = m_fileList->AppendItem(parent,
+	//		it->path().filename().c_str(),
+	//		static_cast<int>(d->Type()),
+	//		static_cast<int>(d->Type()),
+	//		d);
+	//	depth = it.depth();
+	//}
 
 bool cMain::promptSaveAll()
 {
 	bool modified = false;
 	for (auto d : m_openDocuments)
 	{
-		if (static_cast<ObjectEditor*>(d.second)->IsModified())
+		if (d.first->IsModified())
 		{
 			modified = true;
 			break;
@@ -485,9 +498,12 @@ void cMain::updateAllMenuStates()
 {
 	if (m_opened == false)
 	{
-		updateMenuState("File", "Save", false);
-		updateMenuState("File", "Save As...", false);
-		updateMenuState("File", "Save All", false);
+		updateMenuState("File", "New File", false);
+		updateMenuState("File", "Save File", false);
+		updateMenuState("File", "Save File As...", false);
+		updateMenuState("File", "Save All Files", false);
+		updateMenuState("File", "Save Project", false);
+		updateMenuState("File", "Save Project As...", false);
 		updateMenuState("File", "Build ROM", false);
 		updateMenuState("File", "Build ROM As...", false);
 		updateMenuState("Window", "Close", false);
@@ -500,18 +516,22 @@ void cMain::updateAllMenuStates()
 		updateMenuState("File", "Build ROM As...", true);
 		if (m_openDocuments.empty() == true)
 		{
-			updateMenuState("File", "Save", false);
-			updateMenuState("File", "Save As...", false);
-			updateMenuState("File", "Save All", false);
+			updateMenuState("File", "Save File", false);
+			updateMenuState("File", "Save File As...", false);
+			updateMenuState("File", "Save All Files", false);
+			updateMenuState("File", "Save Project", false);
+			updateMenuState("File", "Save Project As...", false);
 			updateMenuState("Window", "Close", false);
 			updateMenuState("Window", "Close All", false);
 			updateMenuState("Window", "Close All But This", false);
 		}
 		else
 		{
-			updateMenuState("File", "Save", true);
-			updateMenuState("File", "Save As...", true);
-			updateMenuState("File", "Save All", true);
+			updateMenuState("File", "Save File", false);
+			updateMenuState("File", "Save File As...", false);
+			updateMenuState("File", "Save All Files", false);
+			updateMenuState("File", "Save Project", false);
+			updateMenuState("File", "Save Project As...", false);
 			updateMenuState("Window", "Close", true);
 			updateMenuState("Window", "Close All", true);
 			updateMenuState("Window", "Close All But This", true);

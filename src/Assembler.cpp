@@ -4,23 +4,14 @@
 #include <sstream>
 #include <fstream>
 #include <iomanip>
+#include "filesystem.h"
 
 #if defined _WIN32 || defined _WIN64
 #define popen _popen
 #define pclose _pclose
 #include <winsock.h>
-#include <filesystem>
 #else
 #include <arpa/inet.h>
-#if GCC_VERSION < 80000
-#include <experimental/filesystem>
-namespace std
-{
-namespace filesystem = experimental::filesystem;
-}
-#else
-#include <filesystem>  
-#endif
 #endif
             
 namespace Landstalker

@@ -4,19 +4,7 @@
 #include <wx/wx.h>
 #include "ObjectEditor.h"
 
-#if defined _WIN32 || defined _WIN64
-#include <filesystem>
-#else
-#if GCC_VERSION < 80000
-#include <experimental/filesystem>
-namespace std
-{
-	namespace filesystem = experimental::filesystem;
-}
-#else
-#include <filesystem>  
-#endif
-#endif
+#include "filesystem.h"
 #include <vector>
 #include <cstdint>
 #include <wx/wx.h>
@@ -29,9 +17,11 @@ public:
 	TilesetEditor(wxWindow* parent,
 		const std::string& name,
 		const wxTreeItemId& treeItemId,
-		const ObjectType& type,
-		int bpp,
-		const std::filesystem::path& filename);
+		const std::filesystem::path& filename,
+		bool compressed = false,
+		int bpp = 4,
+		int tileWidth = 8,
+		int tileHeight = 8);
 
 	virtual ~TilesetEditor() = default;
 
@@ -62,7 +52,7 @@ private:
 	void OnSize(wxSizeEvent& evt);
 
 	void FireModifiedEvent() override;
-	ObjectType m_type;
+	bool m_compressed;
 	std::filesystem::path m_filename;
 	std::vector<uint8_t> m_buffer;
 	wxColour palette[16];

@@ -8,6 +8,8 @@
 #include "wx/aui/auibook.h"
 #include "wx/treectrl.h"
 #include <wx/stc/stc.h>
+#include "filesystem.h"
+#include "ProjectFile.h"
 
 #include "ObjectEditor.h"
 
@@ -35,11 +37,12 @@ public:
 
 	wxDECLARE_EVENT_TABLE();
 private:
-	void onLoadButtonClick(wxCommandEvent& evt);
-	void onBuildButtonClick(wxCommandEvent& evt);
 	void onFileActivate(wxTreeEvent& evt);
 	void onAuiNotebookPageClose(wxAuiNotebookEvent& evt);
 	void onMenuOpen(wxCommandEvent& evt);
+	void onMenuSaveProject(wxCommandEvent& evt);
+	void onMenuSaveProjectAs(wxCommandEvent& evt);
+	void onMenuNew(wxCommandEvent& evt);
 	void onMenuSave(wxCommandEvent& evt);
 	void onMenuSaveAs(wxCommandEvent& evt);
 	void onMenuSaveAll(wxCommandEvent& evt);
@@ -56,12 +59,12 @@ private:
 	void populateMenus();
 	void initImageList();
 	void initAuiMgr();
-	bool closeTab(std::map<wxTreeItemId, ObjectEditor*>::iterator& it);
+	bool closeTab(std::map<ObjectEditor*, wxTreeItemId>::iterator& it);
 	bool closeAll();
 	void saveAll();
 	void buildRom(bool promptForFilename = false);
 	void openProject();
-	void loadProject(const std::string& path);
+	void loadProject(const std::filesystem::path& path);
 	bool promptSaveAll();
 	void showAboutBox();
 	void updateMenuState(const std::string& menu, const std::string& submenu, bool enabled = true);
@@ -73,10 +76,11 @@ private:
 	wxTextCtrl* m_output;
 	wxTreeCtrl* m_fileList;
 	wxAuiNotebook* m_mainEditor;
+	ProjectFile* m_projectFile;
 
 	std::string m_disassemblyPath;
 	std::string m_romPath;
-	std::map<wxTreeItemId, ObjectEditor*> m_openDocuments;
+	std::map<ObjectEditor*, wxTreeItemId> m_openDocuments;
 	bool m_opened{ false };
 };
 

@@ -26,6 +26,8 @@
     <ClCompile Include="..\src\HuffmanTree.cpp" />
     <ClCompile Include="..\src\HuffmanTrees.cpp" />
     <ClCompile Include="..\src\Image.cpp" />
+    <ClCompile Include="..\src\PaletteEditor.cpp" />
+    <ClCompile Include="..\src\ProjectFile.cpp" />
     <ClCompile Include="..\src\IntroString.cpp" />
     <ClCompile Include="..\src\LSString.cpp" />
     <ClCompile Include="..\src\LZ77.cpp" />
@@ -49,6 +51,7 @@
     <ClInclude Include="..\src\include\CodeEditor.h" />
     <ClInclude Include="..\src\include\EndCreditString.h" />
     <ClInclude Include="..\src\include\FileData.h" />
+    <ClInclude Include="..\src\include\filesystem.h" />
     <ClInclude Include="..\src\include\HexEditor.h" />
     <ClInclude Include="..\src\include\HuffmanString.h" />
     <ClInclude Include="..\src\include\HuffmanTree.h" />
@@ -60,6 +63,7 @@
     <ClInclude Include="..\src\include\ObjectEditor.h" />
     <ClInclude Include="..\src\include\ObjectEditorEvent.h" />
     <ClInclude Include="..\src\include\Palette.h" />
+    <ClInclude Include="..\src\include\ProjectFile.h" />
     <ClInclude Include="..\src\include\Tile.h" />
     <ClInclude Include="..\src\include\TileAttributes.h" />
     <ClInclude Include="..\src\include\Tilemap2DRLE.h" />
@@ -67,6 +71,7 @@
     <ClInclude Include="..\src\include\Tileset.h" />
     <ClInclude Include="..\src\include\TilesetEditor.h" />
     <ClInclude Include="..\src\include\Utils.h" />
+    <ClInclude Include="..\src\PaletteEditor.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\src\include\img\asm.xpm" />

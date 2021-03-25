@@ -13,11 +13,13 @@ BEGIN_EVENT_TABLE(TilesetEditor, wxHVScrolledWindow)
 	EVT_SIZE(TilesetEditor::OnSize)
 END_EVENT_TABLE()
 
-TilesetEditor::TilesetEditor(wxWindow* parent, const std::string& name, const wxTreeItemId& treeItemId, const ObjectType& type, int bpp, const std::filesystem::path& filename)
+TilesetEditor::TilesetEditor(wxWindow* parent, const std::string& name, const wxTreeItemId& treeItemId, const std::filesystem::path& filename, bool compressed, int bpp, int tileWidth, int tileHeight)
 	: wxHVScrolledWindow(parent),
 	ObjectEditor(parent, name, treeItemId),
-    m_type(type),
+    m_compressed(compressed),
 	m_bpp(bpp),
+	m_tileWidth(tileWidth),
+	m_tileHeight(tileHeight),
 	m_filename(filename)
 {
 	SetBackgroundStyle(wxBG_STYLE_PAINT);
@@ -38,7 +40,7 @@ TilesetEditor::TilesetEditor(wxWindow* parent, const std::string& name, const wx
 	input.reserve(fileSize);
 	input.insert(input.begin(), std::istream_iterator<uint8_t>(ifs), std::istream_iterator<uint8_t>());
 
-	if (type == ObjectType::TILESET_LZ77)
+	if (compressed == true)
 	{
 		std::vector<uint8_t> buffer(65536);
 		size_t dsize = 0, esize = 0;

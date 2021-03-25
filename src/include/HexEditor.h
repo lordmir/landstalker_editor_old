@@ -3,20 +3,7 @@
 
 #include <wx/wx.h>
 #include "ObjectEditor.h"
-
-#if defined _WIN32 || defined _WIN64
-#include <filesystem>
-#else
-#if GCC_VERSION < 80000
-#include <experimental/filesystem>
-namespace std
-{
-	namespace filesystem = experimental::filesystem;
-}
-#else
-#include <filesystem>  
-#endif
-#endif
+#include "filesystem.h"
 #include <vector>
 #include <cstdint>
 

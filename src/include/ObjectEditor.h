@@ -20,6 +20,8 @@ enum class ObjectType
 	TILESET_2BPP
 };
 
+ObjectType StrToObj(const std::string& name);
+
 class ObjectEditor 
 {
 public:

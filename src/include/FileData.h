@@ -3,19 +3,10 @@
 
 #include <wx/treebase.h>
 #include <string>
-#if defined _WIN32 || defined _WIN64
-#include <filesystem>
-#else
-#if GCC_VERSION < 80000
-#include <experimental/filesystem>
-namespace std
-{
-	namespace filesystem = experimental::filesystem;
-}
-#else
-#include <filesystem>
-#endif
-#endif
+#include <map>
+#include <vector>
+#include "filesystem.h"
+#include <wx/xml/xml.h>
 #include "ObjectEditor.h"
 
 namespace Landstalker
@@ -24,15 +15,26 @@ namespace Landstalker
 class FileData : public wxTreeItemData
 {
 public:
-	FileData(const std::string& path, bool isFile);
-	std::string Path() const { return m_path.generic_string(); }
-	bool IsFile() const { return m_isFile; }
-	ObjectType Type() const { return m_type; };
+	FileData(wxWindow* parent, wxXmlNode* node, const std::filesystem::path& basedir);
+	void SetTreeId(wxTreeItemId* id);
+	bool IsFile() const { return m_type != ObjectType::DIRECTORY; }
+	ObjectType Type() const { return m_type; }
+	ObjectEditor* MakeEditor() const;
+	std::string Name() const { return m_name; }
+	std::string Description() const { return m_name; }
 
 private:
+	void updateFilenames();
+
+	wxWindow* m_parent;
+	wxXmlNode* m_node;
+	wxTreeItemId* m_id;
 	ObjectType m_type;
-	std::filesystem::path m_path;
-	bool m_isFile;
+	std::string m_name;
+	std::string m_description;
+	std::filesystem::path m_basedir;
+	std::map<ObjectType, std::vector<std::filesystem::path>> m_files;
+	std::vector<wxXmlNode*> m_includes;
 };
 
 } // namespace Landstalker

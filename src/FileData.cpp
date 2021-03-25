@@ -1,40 +1,74 @@
 #include "FileData.h"
+#include "CodeEditor.h"
+#include "HexEditor.h"
+#include "TilesetEditor.h"
 #include <algorithm>
 
-Landstalker::FileData::FileData(const std::string& path, bool isFile)
-    : m_path(path), m_isFile(isFile)
+Landstalker::FileData::FileData(wxWindow* parent, wxXmlNode* node, const std::filesystem::path& basedir)
+    : m_parent(parent),
+	  m_node(node),
+	  m_type(StrToObj(m_node->GetName().ToStdString())),
+	  m_name(m_node->GetAttribute("name")),
+	  m_description(m_node->GetAttribute("description")),
+	  m_basedir(basedir)
 {
-	if (m_isFile == true)
+		updateFilenames();
+}
+
+void Landstalker::FileData::SetTreeId(wxTreeItemId* id)
+{
+	m_id = id;
+}
+
+ObjectEditor* Landstalker::FileData::MakeEditor() const
+{
+	ObjectEditor* editor = nullptr;
+	switch (m_type)
 	{
-		std::string extension = m_path.extension().generic_string();
-		std::transform(extension.begin(), extension.end(), extension.begin(), [](char c) {return toupper(c);});
-		if (extension == ".ASM" || extension == ".INC")
+	case ObjectType::ASSEMBLY_SOURCE:
+		if (m_files.at(m_type).size() == 1)
 		{
-			m_type = ObjectType::ASSEMBLY_SOURCE;
+			editor = new CodeEditor(m_parent, m_name, m_id, m_files.at(m_type)[0]);
 		}
-		else if (extension == ".BIN")
+		break;
+	case ObjectType::TILESET_UNCOMPRESSED:
+		if (m_files.at(m_type).size() == 1)
 		{
-			m_type = ObjectType::TILESET_UNCOMPRESSED;
+			int bpp = m_node->HasAttribute("bpp") ? std::stoi(m_node->GetAttribute("bpp").ToStdString()) : 4;
+			int width = m_node->HasAttribute("width") ? std::stoi(m_node->GetAttribute("width").ToStdString()) : 8;
+			int height = m_node->HasAttribute("height") ? std::stoi(m_node->GetAttribute("height").ToStdString()) : 8;
+			bool compressed = m_node->HasAttribute("compressed") ? (m_node->GetAttribute("compressed").Lower() == "true") : false;
+			editor = new TilesetEditor(m_parent, m_name, m_id, m_files.at(m_type)[0], compressed, bpp, width, height);
 		}
-		else if (extension == ".LZ77")
+		break;
+	case ObjectType::BINARY:
+		if (m_files.at(m_type).size() == 1)
 		{
-			m_type = ObjectType::TILESET_LZ77;
+			editor = new HexEditor(m_parent, m_name, m_id, m_files.at(m_type)[0]);
 		}
-		else if (extension == ".1BPP")
-		{
-			m_type = ObjectType::TILESET_1BPP;
-		}
-		else if (extension == ".2BPP")
-		{
-			m_type = ObjectType::TILESET_2BPP;
-		}
-		else
-		{
-			m_type = ObjectType::BINARY;
-		}
+		break;
+	default:
+		break;
 	}
-	else
+	return editor;
+}                       
+
+void Landstalker::FileData::updateFilenames()
+{
+	if (m_node->HasAttribute("filename"))
 	{
-		m_type = ObjectType::DIRECTORY;
+		m_files[m_type].push_back(m_basedir / m_node->GetAttribute("filename").ToStdString());
+	}
+	auto* node = m_node->GetChildren();
+	while (node != nullptr)
+	{
+		if (node->GetName().Lower() == "file")
+		{
+			auto type = node->HasAttribute("type") ? StrToObj(node->GetAttribute("type").ToStdString()) : m_type;
+			auto path = node->GetAttribute("filename");
+			m_files[type].push_back(m_basedir / path.ToStdString());
+		}
+		node = node->GetNext();
 	}
 }
+

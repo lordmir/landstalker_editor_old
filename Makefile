@@ -5,7 +5,7 @@ CXXFLAGS   = `wx-config --cxxflags` -std=c++17
 CPPFLAGS   = `wx-config --cppflags`
 
 EXEC       := landstalker_editor
-LIBS       := `wx-config --libs core,base,aui,stc,adv` -lstdc++fs
+LIBS       := `wx-config --libs core,base,aui,stc,adv,xml` -lstdc++fs
 SRCDIR     := src
 BUILDDIR   := build
 BINDIR     := bin
