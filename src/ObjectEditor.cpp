@@ -1,4 +1,5 @@
 #include "ObjectEditor.h"
+#include <algorithm>
 #include <wx/wx.h>
 
 wxDEFINE_EVENT(OBJECT_EDITOR_MODIFY, wxCommandEvent);

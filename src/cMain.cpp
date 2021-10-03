@@ -50,7 +50,12 @@ wxBEGIN_EVENT_TABLE(cMain, wxFrame)
 wxEND_EVENT_TABLE()
 
 cMain::cMain() : wxFrame(nullptr, wxID_ANY, "Landstalker Disassembly Editor",
-                         wxDefaultPosition, wxSize(800, 600), wxDEFAULT_FRAME_STYLE)
+                         wxDefaultPosition, wxSize(800, 600), wxDEFAULT_FRAME_STYLE),
+                 m_menu(nullptr),
+		 m_output(nullptr),
+		 m_fileList(nullptr),
+		 m_mainEditor(nullptr),
+		 m_projectFile(nullptr)
 {
 	SetIcon(chest_xpm);
 	populateMenus();
@@ -394,6 +399,7 @@ void cMain::loadProject(const std::filesystem::path& path)
 	if (m_projectFile != nullptr)
 	{
 		delete m_projectFile;
+		m_projectFile = nullptr;
 	}
 	m_projectFile = new ProjectFile(path);
 

@@ -34,6 +34,7 @@ class cMain : public wxFrame
 public:
 	cMain();
 	~cMain();
+	void loadProject(const std::filesystem::path& path);
 
 	wxDECLARE_EVENT_TABLE();
 private:
@@ -64,7 +65,6 @@ private:
 	void saveAll();
 	void buildRom(bool promptForFilename = false);
 	void openProject();
-	void loadProject(const std::filesystem::path& path);
 	bool promptSaveAll();
 	void showAboutBox();
 	void updateMenuState(const std::string& menu, const std::string& submenu, bool enabled = true);

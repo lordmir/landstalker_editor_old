@@ -16,7 +16,7 @@ END_EVENT_TABLE()
 TilesetEditor::TilesetEditor(wxWindow* parent, const std::string& name, const wxTreeItemId& treeItemId, const std::filesystem::path& filename, bool compressed, int bpp, int tileWidth, int tileHeight)
 	: wxHVScrolledWindow(parent),
 	ObjectEditor(parent, name, treeItemId),
-    m_compressed(compressed),
+	m_compressed(compressed),
 	m_bpp(bpp),
 	m_tileWidth(tileWidth),
 	m_tileHeight(tileHeight),
@@ -26,31 +26,38 @@ TilesetEditor::TilesetEditor(wxWindow* parent, const std::string& name, const wx
 
 	std::ifstream ifs(m_filename, std::ios::binary);
 
-	// Stop eating new lines in binary mode
-	ifs.unsetf(std::ios::skipws);
-
-	// get its size:
-	std::streampos fileSize;
-
-	ifs.seekg(0, std::ios::end);
-	fileSize = ifs.tellg();
-	ifs.seekg(0, std::ios::beg);
-	
-	std::vector<uint8_t> input;
-	input.reserve(fileSize);
-	input.insert(input.begin(), std::istream_iterator<uint8_t>(ifs), std::istream_iterator<uint8_t>());
-
-	if (compressed == true)
+	if(ifs.fail())
 	{
-		std::vector<uint8_t> buffer(65536);
-		size_t dsize = 0, esize = 0;
-		dsize = LZ77::Decode(input.data(), input.size(), buffer.data(), esize);
-		buffer.resize(dsize);
-		convertBuffer(buffer, bpp);
+		wxMessageBox("Failed to open " + m_filename.string());
 	}
 	else
 	{
-		convertBuffer(input, bpp);
+		// Stop eating new lines in binary mode
+		ifs.unsetf(std::ios::skipws);
+
+		// get its size:
+		std::streampos fileSize;
+
+		ifs.seekg(0, std::ios::end);
+		fileSize = ifs.tellg();
+		ifs.seekg(0, std::ios::beg);
+		
+		std::vector<uint8_t> input;
+		input.reserve(fileSize);
+		input.insert(input.begin(), std::istream_iterator<uint8_t>(ifs), std::istream_iterator<uint8_t>());
+
+		if (compressed == true)
+		{
+			std::vector<uint8_t> buffer(65536);
+			size_t dsize = 0, esize = 0;
+			dsize = LZ77::Decode(input.data(), input.size(), buffer.data(), esize);
+			buffer.resize(dsize);
+			convertBuffer(buffer, bpp);
+		}
+		else
+		{
+			convertBuffer(input, bpp);
+		}
 	}
 
 	// Tempory values for palette

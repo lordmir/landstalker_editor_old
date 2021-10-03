@@ -1,6 +1,7 @@
 #include <Palette.h>
 #include <algorithm>
 #include <iostream>
+#include <string.h>
 
 static const char* MAGIC_WORD = "TPL";
 
